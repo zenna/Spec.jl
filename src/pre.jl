@@ -46,6 +46,32 @@ macro with_pre(expr)
 end
 
 """
+Macroless version of `@with_pre`
+
+```jldoctest
+julia> f(x::Real) = (@pre x > 0; sqrt(x) + 5)
+f (generic function with 1 method)
+
+julia> f(-3)
+ERROR: DomainError:
+Stacktrace:
+ [1] f(::Int64) at ./REPL[2]:1
+
+julia> with_pre() do
+         f(-3)
+       end
+ERROR: ArgumentError: x > 0
+```
+"""
+function with_pre(thunk)
+  pre_check_on!()
+  res = thunk()
+  pre_check_off!()
+  res
+end
+
+
+"""
 Define a precondition on function argument.
 Currently `@pre` works similarly to `@assert` except that:
  1) an exception is thrown

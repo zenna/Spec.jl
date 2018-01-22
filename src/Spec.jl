@@ -6,6 +6,7 @@ include("pre.jl")      # preconditions
 
 export @pre,
        @with_pre,
+       with_pre,
        @invariant
 
 end
