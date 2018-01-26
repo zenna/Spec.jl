@@ -6,7 +6,7 @@ newestmethod(func::Function) = sort(methods(func).ms, by=m->m.min_world)[end]
 # end
 #
 # @testing x + 1 ArgumentError("msg") x / 3
-PRE_CHECKING_ON = false
+PRE_CHECKING_ON = true
 
 "Check preconditions"
 pre_check_on!() = (global PRE_CHECKING_ON=true)
@@ -97,6 +97,51 @@ macro pre(pred)
   end
 end
 
+"""
+Pre with a comment
+# FIXME: redundancy
+"""
+macro pre(pred, desc)
+  strpred = string(pred)
+  quote
+    if pre_check()
+      if !$(esc(pred))
+        desc = $(esc(desc))
+        dabomb = string($strpred, ", ", desc)
+        throw(ArgumentError(dabomb))
+      end
+    end
+  end
+end
+
+
+"""
+Define a postcondition on function argument.
+
+Currently `@post` works similarly to `@assert` except that:
+ 1) an exception is thrown
+ 2) post_check_ons can be disabled
+
+```jldoctest
+julia> f(x::Real) = (@post x > 0; sqrt(x) + 5)
+f (generic function with 1 method)
+
+julia> f(-3)
+ERROR: ArgumentError: x > 0
+```
+
+"""
+macro post(retval, pred)
+  strpred = string(pred)
+  quote
+    if pre_check()
+      if !$(esc(pred))
+        throw(ArgumentError($strpred))
+      end
+    end
+    $(esc(retval))
+  end
+end
 
 "Define invariant - currently a dummy for documenation"
 macro invariant(args...)
