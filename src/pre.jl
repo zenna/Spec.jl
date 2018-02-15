@@ -87,11 +87,11 @@ ERROR: ArgumentError: x > 0
 
 """
 macro pre(pred)
-  strpred = string(pred)
   quote
     if pre_check()
       if !$(esc(pred))
-        throw(ArgumentError($strpred))
+        errterm = string($(Meta.quot(pred)))
+        throw(ArgumentError(errterm))
       end
     end
   end
@@ -102,13 +102,12 @@ Pre with a comment
 # FIXME: redundancy
 """
 macro pre(pred, desc)
-  strpred = string(pred)
   quote
     if pre_check()
       if !$(esc(pred))
         desc = $(esc(desc))
-        dabomb = string($strpred, ", ", desc)
-        throw(ArgumentError(dabomb))
+        errterm = string($(Meta.quot(pred)), ", ", desc)
+        throw(ArgumentError(errterm))
       end
     end
   end
@@ -132,11 +131,11 @@ ERROR: ArgumentError: x > 0
 
 """
 macro post(retval, pred)
-  strpred = string(pred)
   quote
     if pre_check()
       if !$(esc(pred))
-        throw(ArgumentError($strpred))
+        errterm = string($(Meta.quot(pred)))
+        throw(ArgumentError(errterm))
       end
     end
     $(esc(retval))
