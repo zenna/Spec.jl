@@ -10,16 +10,18 @@ julia> walktests(Spec)
 function walktests(testmodule::Module;
                    test_dir = joinpath(Pkg.dir(string(testmodule)), "test", "tests"),
                    exclude = [])
-  tests = setdiff(readdir(test_dir), exclude)
   print_with_color(:blue, "Running tests:\n")
 
   # Single thread
   srand(345679)
   with_pre() do
-    res = map(tests) do t
-      println("Testing: ", t)
-      include(joinpath(test_dir, t))
-      nothing
+    for (root, dirs, files) in walkdir(test_dir)
+      for file in files
+        file ∈ exclude && continue
+        fn = joinpath(root, file)
+        println("Testing: ", fn)
+        include(fn)
+      end
     end
   end
 
