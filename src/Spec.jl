@@ -1,15 +1,19 @@
-__precompile__()
+__precompile__(false)
 "Testing and specification"
 module Spec
 
-include("pre.jl")      # preconditions
-include("testing.jl")      # preconditions
+using Cassette
+
+include("spec.jl")         # Specifications
+include("pre.jl")          # Preconditions
+include("testing.jl")      # Testing Tools
 
 export @pre,
        @with_pre,
        with_pre,
        @post,
        @invariant,
-       walktests
+       walktests,
+       @spec
 
 end
