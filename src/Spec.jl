@@ -1,4 +1,3 @@
-__precompile__(false)
 "Testing and specification"
 module Spec
 
