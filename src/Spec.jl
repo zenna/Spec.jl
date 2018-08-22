@@ -3,7 +3,7 @@ module Spec
 
 using Cassette
 
-include("spec.jl")         # Specifications
+include("specs.jl")         # Specifications
 include("pre.jl")          # Preconditions
 include("testing.jl")      # Testing Tools
 
