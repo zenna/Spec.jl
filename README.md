@@ -8,8 +8,9 @@ A package for expressing specifications.
 
 # Usage
 
-Spec has a number of primitives for specfiying correctness properties.
+Spec.jl is (very small) library for specfiying correctness properties of programs.
 Currently these serve both as functional tests (like asserts which can be disabled globally), or just a non-executable documentation.
+The long term goal is to replicate much of the functionality of Spec in clojure, as well as formal verification methods.
 
 ```julia
 
@@ -21,8 +22,6 @@ end
 ## Operations
 
 Preconditions are defined using `@pre`
-
-
 
 ```julia
 julia> f(x::Real) = (@pre x > 0; sqrt(x) + 5)
