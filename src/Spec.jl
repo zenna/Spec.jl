@@ -2,6 +2,8 @@
 module Spec
 
 using Cassette
+import Pkg
+import Random
 
 include("specs.jl")         # Specifications
 include("pre.jl")          # Preconditions

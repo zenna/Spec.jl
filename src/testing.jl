@@ -1,4 +1,3 @@
-
 """
 Walk through `test_dir` directory and execute all tests, excluding `exclude`
 
@@ -10,23 +9,21 @@ julia> walktests(Spec)
 function walktests(testmodule::Module;
                    test_dir = joinpath(Pkg.dir(string(testmodule)), "test", "tests"),
                    exclude = [])
-  print_with_color(:blue, "Running tests:\n")
+  printstyled("Running tests:\n", color = :blue)
 
   # Single thread
-  srand(345679)
+  Random.seed!(345679)
   with_pre() do
     for (root, dirs, files) in walkdir(test_dir)
       for file in files
-        file ∈ exclude && continue
+        if file ∈ exclude
+          println("Skipping: ", file)
+          continue
+        end
         fn = joinpath(root, file)
         println("Testing: ", fn)
         include(fn)
       end
     end
   end
-
-  # print method ambiguities
-  println("Potentially stale exports: ")
-  display(Base.Test.detect_ambiguities(testmodule))
-  println()
 end
