@@ -1,3 +1,17 @@
+# Cassette.@context SpecCtx
+
+# +(x, y) = 30
+
+# function cassettepost(m::Method, expr::Expr)
+#   tv, decls, file, line = arg_decl_parts(m)
+#   sig = unwrap_unionall(m.sig)
+#   ft0 = sig.parameters[1]
+#   ft = unwrap_unionall(ft0)
+#   d1 = decls[1]
+
+# end
+# Cassette.overdub(::SpecCtx, ::typeof(+), x, y) = 3
+
 struct MethodSpec{TAGS <: Tuple}
   tags::TAGS
   spec::Expr

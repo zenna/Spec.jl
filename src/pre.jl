@@ -122,16 +122,16 @@ ERROR: ArgumentError: x > 0
 ```
 
 """
-macro post(retval, pred)
-  quote
-    if pre_check()
-      if !$(esc(pred))
-        errterm = string($(Meta.quot(pred)))
-        throw(ArgumentError(errterm))
-      end
-    end
-    $(esc(retval))
-  end
+macro post(retval, pred...)
+  # quote
+  #   if pre_check()
+  #     if !$(esc(pred))
+  #       errterm = string($(Meta.quot(pred)))
+  #       throw(ArgumentError(errterm))
+  #     end
+  #   end
+  #   $(esc(retval))
+  # end
 end
 
 "Define invariant - currently a dummy for documenation"

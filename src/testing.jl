@@ -7,8 +7,9 @@ julia> walktests(Spec)
 ```
 """
 function walktests(testmodule::Module;
-                   test_dir = joinpath(Pkg.dir(string(testmodule)), "test", "tests"),
-                   exclude = [])
+                   test_dir = joinpath(dirname(pathof(testmodule)), "..", "test", "tests"),
+                   exclude = [],
+                   evalin::Module = Main)
   printstyled("Running tests:\n", color = :blue)
 
   # Single thread
@@ -22,7 +23,7 @@ function walktests(testmodule::Module;
         end
         fn = joinpath(root, file)
         println("Testing: ", fn)
-        include(fn)
+        evalin.eval(:(include($fn)))
       end
     end
   end
