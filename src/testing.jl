@@ -22,8 +22,9 @@ function walktests(testmodule::Module;
           continue
         end
         fn = joinpath(root, file)
-        println("Testing: ", fn)
-        evalin.eval(:(include($fn)))
+        @testset "$fn" begin
+          evalin.eval(:(include($fn)))
+        end
       end
     end
   end
