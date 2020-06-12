@@ -6,18 +6,46 @@
 
 A package for expressing specifications.
 
+Spec.jl is (very small) library for specfiying correctness properties of programs.
+These tests are used both as documentation and for testing.
+
 # Usage
 
-Spec.jl is (very small) library for specfiying correctness properties of programs.
-Currently these serve both as functional tests (like asserts which can be disabled globally), or just a non-executable documentation.
-The long term goal is to replicate much of the functionality of Spec in clojure, as well as formal verification methods.
+
+## Post Conditions
+
+The most common kind of specification is a __post condition__ which is a test that is on the output of a function.
+The most canonical example of a specificaiton is that of a sorted list., which states that a list is sorted if for every element `i` and every element `j`, if `i < j` then the position of `i` should be less than the position of `j`  
+
 
 ```julia
+"p implies q"
+p → q = !(p && !q)
 
-function f()
-  @pre x + y == 2
+sorted(xs) = 
+  all((xs[i] < xs[j] → i < j for i = 1:length(xs) for j = 1:length(xs) if i != j))
+
+mysort(x) = sort(x)
+@post sorted(res)
+```
+
+It's often useful to give a specification a description
+
+```julia
+@post sorted(res) "The output was sorted: x_i < x_j implies i < j"
+```
+
+One use of a spec is to execute a function.
+
+Suppose we have a functio
+
+```julia 
+function myfunction
+  x = rand(0)
+  myspec(x)
 end
 ```
+
 
 ## Operations
 

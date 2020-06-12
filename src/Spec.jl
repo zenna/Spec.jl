@@ -6,8 +6,10 @@ using Test
 import Pkg
 import Random
 
-include("specs.jl")         # Specifications
-include("pre.jl")          # Preconditions
+include("newspec.jl")
+include("sampletype.jl")
+# include("specs.jl")         # Specifications
+# include("pre.jl")          # Preconditions
 include("testing.jl")      # Testing Tools
 
 export @pre,
@@ -16,6 +18,7 @@ export @pre,
        @post,
        @invariant,
        walktests,
-       @spec
+       @spec,
+       specapply
 
 end
