@@ -1,4 +1,4 @@
-export post, pre, premeta, postmeta, specapply
+export post, pre, premeta, postmeta, specapply, PreconditionError
 
 import Cassette
 using Parameters
@@ -14,32 +14,43 @@ using Parameters
   expr::Expr            # Expression encoding the proposition
 end
 
-struct PreConditionFailure <: Exception
+struct PreconditionError <: Exception
   specmeta::SpecMeta
   args
 end
 
-function Base.showerror(io::IO, e::PreConditionFailure)
-  println(io, "Precondition fail", e.specmeta)
-  println(io, "Expression:", e.specmeta.expr)
-  println(io, "Failed on inputs", e.specmeta.args)
+function Base.showerror(io::IO, e::PreconditionError)
+  println(io, "Precondition failure: ", e.specmeta.desc)
+  println(io, "Expression: ", e.specmeta.expr)
+  println(io, "Failed on inputs: ", e.args)
 end
-
 
 Cassette.@context SpecCtx
 
-@inline function Cassette.overdub(ctx::SpecCtx, f, args...)
+# @inline function Cassette.overdub(ctx::SpecCtx, f, args...)
+#   @show f, args
+#   pre = checkpre(f, args...)
+#   cap = capture(f, args...)
+#   ret = Cassette.recurse(ctx, f, args...)
+#   checkpost(cap, f, args...)
+#   ret
+# end
+
+@inline function dospec(ctx::SpecCtx, f, args...)
+  @show f, args
   pre = checkpre(f, args...)
   cap = capture(f, args...)
   ret = Cassette.recurse(ctx, f, args...)
-  checkpost(cap, f, args...)
+  # checkpost(cap, f, args...)
   ret
 end
+
 
 @inline function checkpre(f, args...)
   premeta_ = premeta(f, args...)
   if premeta_.check
-    !pre(f, args...) && throw(PreConditionFailure(premeta_, args))
+    pre(f, args...)
+    !pre(f, args...) && throw(PreconditionError(premeta_, args))
   end
 end
 
@@ -115,7 +126,7 @@ post(::typeof(f), ret, x) = x > 0
 capture(typeof(sort!), ret, x) = (x_ = deepcopy(x),)
 
 """
-macro post(meta, funcexpr)
+macro post(meta, precond)
 end
 
 macro post(funcexpr)
@@ -131,7 +142,13 @@ end
 
 function transformmeta(expr, meta)
   @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.premeta(::typeof($f), $(xs...)) = Spec.SpecMeta($body))
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.premeta(::typeof($f), $(xs...)) = Spec.SpecMeta(; expr = $(QuoteNode(body))))
+  end
+end
+
+function adddospec(expr, meta)
+  @match expr begin
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.overdub(specctx::Spec.SpecCtx, ::typeof($f), $(xs...)) = Spec.dospec(specctx, $f, $(xs...)))
   end
 end
 
@@ -139,10 +156,11 @@ macro pre(funcexpr)
   esc(transform(funcexpr))
 end
 
-macro pre(meta, funcexpr)
+macro pre(precond, meta)
   expr = quote
-    transform(funcexpr)
-    transformmeta(meta)
+    $(transform(precond))
+    $(transformmeta(precond, meta))
+    $(adddospec(precond, meta))
   end
   esc(expr)
 end

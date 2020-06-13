@@ -7,6 +7,9 @@ using Test
 import Pkg
 import Random
 
+import Cassette: overdub
+export overdub
+
 include("newspec.jl")
 include("sampletype.jl")
 # include("specs.jl")         # Specifications
