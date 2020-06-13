@@ -9,9 +9,22 @@ using Parameters
 # 2. should we refer to current function, or somehow look it up
 
 @with_kw struct SpecMeta
-  check::Int = true     # Actually check this
+  check::Bool = true    # Actually check this
   desc::String = ""     # Description
+  expr::Expr            # Expression encoding the proposition
 end
+
+struct PreConditionFailure <: Exception
+  specmeta::SpecMeta
+  args
+end
+
+function Base.showerror(io::IO, e::PreConditionFailure)
+  println(io, "Precondition fail", e.specmeta)
+  println(io, "Expression:", e.specmeta.expr)
+  println(io, "Failed on inputs", e.specmeta.args)
+end
+
 
 Cassette.@context SpecCtx
 
@@ -25,14 +38,14 @@ end
 
 @inline function checkpre(f, args...)
   premeta_ = premeta(f, args...)
-  if premeta_.check == true
-    @assert pre(f, args...) premeta_.desc # FIXME Replace assert with something else
+  if premeta_.check
+    !pre(f, args...) && throw(PreConditionFailure(premeta_, args))
   end
 end
 
 @inline function checkpost(cap, f, args...)
   postmeta_ = postmeta(f, args...)
-  if postmeta_.check == true
+  if postmeta_.check
     @assert post(cap, f, args...) postmeta_.desc
   end
 end
@@ -68,17 +81,6 @@ specapply(f, 0.3)
 """
 specapply(f, args...) = Cassette.overdub(SpecCtx(), f, args...)
 
-# "Is expr an inline function definition like `:(f(x) = 2x)`"
-# isinlinefuncdef(expr::Expr) = expr.head == :(=) && length(expr.args) == 2 && expr.args[1] isa Expr && expr.args[1].head == :call
-
-# function handlepostexpr(expr)
-#   if isinlinefuncdef(expr)
-#     Expr()
-
-# end
-
-# # Macros 
-# THese macros make it easier to cosntruct specifications
 
 """
 For writing post-specifications
@@ -114,27 +116,45 @@ capture(typeof(sort!), ret, x) = (x_ = deepcopy(x),)
 
 """
 macro post(meta, funcexpr)
-
-end
-
-function postexpr(expr)
-  @match expr begin
-    Expr(:(=), :last, ) => post(Expr(:(=), findlastmethod(f)))
-  end
 end
 
 macro post(funcexpr)
-  Expr(:call, :=, :last, _) => Expr(:call)
+  # Expr(:call, :=, :last, _) => Expr(:call)
+end
+
+function transform(expr)
+  # Expr(:(=), Expr(:call, :(Spec.pre), :(typeof)))
+  @match expr begin
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.pre(::typeof($f), $(xs...)) = $body)
+  end
+end
+
+function transformmeta(expr, meta)
+  @match expr begin
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.premeta(::typeof($f), $(xs...)) = Spec.SpecMeta($body))
+  end
 end
 
 macro pre(funcexpr)
-
+  esc(transform(funcexpr))
 end
 
 macro pre(meta, funcexpr)
-
+  expr = quote
+    transform(funcexpr)
+    transformmeta(meta)
+  end
+  esc(expr)
 end
 
 macro invariant(args...)
+end
 
+macro ret()
+  esc(:ret)
+end
+
+"Capture"
+macro cap(var::Symbol)
+  esc(Expr(:., :cap, QuoteNode(var)))
 end

@@ -7,7 +7,7 @@
 A package for expressing specifications.
 
 Spec.jl is small library for specfiying correctness properties of programs.
-These tests are used both as documentation and for testing.
+These specifications can be used as documentation, for testing, and for debugging.
 
 # Usage
 
@@ -18,16 +18,16 @@ Toadd:
 ### Pre Conditions
 
 Preconditions are statements (also known as propositions or conditions) that must be true about the input before the function is executed.
-On purpose of using preconditions is for documentation -- by being specifying precise constraints on the functions behaviour we are communicating more clearly what we expect it to do.
+One purpose of using preconditions is for documentation -- by specifying precise constraints on the function's behaviour we are communicating more clearly what we expect it to do.
 
 Preconditions are specified using the `@pre` macro, for example:
 
 ```julia
 f(x::Float64) = x * sqrt(x)
-@pre f(x::Float64) >= 0
+@pre f(::Float64) x >= 0
 ```
 
-This should be interpreted as defining a precondition for the function `f` that specifies that the input `x` should be non-negative.
+This should be interpreted as defining a precondition for the method `f(::Int)` that specifies that the input `x` should be non-negative.
 
 If we are feeling lazy we can avoid writing the signature twice, and instead write:
 
@@ -36,7 +36,7 @@ f(x::Float64) = x * sqrt(x)
 @pre f x > 0
 ```
 
-This will define the precondition `x > 0` for the most recently defined method for `f`.
+This will define the precondition `x > 0` for the most recently defined method for the generic function `f`.
 
 Multiple specifications can be expressed by simply adding additional lines.  For example:
 
@@ -47,6 +47,7 @@ bmi(height, weight) = height / weight
 @pre bmi weight > 0 "Weight must be positive"
 ```
 
+The semantics of this is conjuctive: __all__ the different specs should be true.
 This example also shows us that we can attach a description to any specification.
 
 There is a many-to-one relationship between methods and generic functions in Julia.

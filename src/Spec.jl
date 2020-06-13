@@ -2,6 +2,7 @@
 module Spec
 
 using Cassette
+using MLStyle
 using Test
 import Pkg
 import Random
