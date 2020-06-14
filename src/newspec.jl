@@ -25,6 +25,19 @@ function Base.showerror(io::IO, e::PreconditionError)
   println(io, "Failed on inputs: ", e.args)
 end
 
+struct PostconditionError <: Exception
+  specmeta::SpecMeta
+  args
+  ret
+end
+
+function Base.showerror(io::IO, e::PostconditionError)
+  println(io, "Precondition failure: ", e.specmeta.desc)
+  println(io, "Expression: ", e.specmeta.expr)
+  println(io, "Failed on inputs: ", e.args)
+  println(io, "and on return value", e.ret)
+end
+
 Cassette.@context SpecCtx
 
 # @inline function Cassette.overdub(ctx::SpecCtx, f, args...)
@@ -38,6 +51,7 @@ Cassette.@context SpecCtx
 
 @inline function dospec(ctx::SpecCtx, f, args...)
   @show f, args
+  ## For each one that matches pre(specid, f, args...)
   pre = checkpre(f, args...)
   cap = capture(f, args...)
   ret = Cassette.recurse(ctx, f, args...)
@@ -45,19 +59,27 @@ Cassette.@context SpecCtx
   ret
 end
 
+available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
 
 @inline function checkpre(f, args...)
-  premeta_ = premeta(f, args...)
-  if premeta_.check
-    pre(f, args...)
-    !pre(f, args...) && throw(PreconditionError(premeta_, args))
+  for v in available_vals(pre)
+    if applicable(pre, v(), f, args...)
+      premeta_ = premeta(v(), f, args...)
+      if premeta_.check
+        !pre(v(), f, args...) && throw(PreconditionError(premeta_, args))
+      end
+    end
   end
 end
 
-@inline function checkpost(cap, f, args...)
-  postmeta_ = postmeta(f, args...)
-  if postmeta_.check
-    @assert post(cap, f, args...) postmeta_.desc
+@inline function checkpost(f, args...)
+  for v in available_vals(post)
+    if applicable(post, v(), f, args...)
+      postmeta_ = postmeta(v(), f, args...)
+      if postmeta_.check
+        !post(v(), f, args...) && throw(PostconditionError(postmeta_, args))
+      end
+    end
   end
 end
 
@@ -72,10 +94,13 @@ function pre end
 "A post-condition"
 function post end
 
-post(args...) = NoPost()
-pre(args...) = NoPre()
-premeta(args...) = SpecMeta(; check = false)
-postmeta(args...) = SpecMeta(; check = false)
+# post(args...) = NoPost()
+# # pre(args...) = NoPre()
+
+function premeta end
+function postmeta end
+# premeta(args...) = SpecMeta(; check = false)
+# postmeta(args...) = SpecMeta(; check = false)
 capture(args...) = NoCapture()
 
 """
@@ -92,87 +117,3 @@ specapply(f, 0.3)
 """
 specapply(f, args...) = Cassette.overdub(SpecCtx(), f, args...)
 
-
-"""
-For writing post-specifications
-
-```
-"returns named tuple with `key` removed"
-rmkey(nt::NamedTuple, key::Symbol) = (; (k => v for (k, v) in pairs(nt) if k != key)...)
-@pre "Key must exist to be removed" rmkey(nt, key) = key in keys(nt)
-@post rmkey(ret, nt, key) = (k = setdiff(keys(ret), keys(nt)); length(k) == 1 && k[1] == key)
-```
-
-expands to
-
-```
-Spec.premeta(::typeof(rmkey), nt, key) = Spec.SpecMeta(; desc = "Key must be exist to be removed")
-Spec.pre(::typeof(rmkey), nt, key) = key in keys(nt)
-Spec.post(::typeof(rmkey), ret, nt, key) = (k = setdiff(keys(ret), keys(nt)); length(k) == 1 && k[1] == key)
-```
-
-For mutating functions, we may wish to capture information before they are run.
-
-```
-@pre sort!(x::Vector{Int}) = (x_ = deepcopy(x))
-@capture sort!(x) = (x = deepcopy(x))
-@post sort!(cap, ret, x) = ret == sort(cap.x)
-````
-expands to:
-
-````
-pre(typeof(sort!), x::Vector{Int})
-post(::typeof(f), ret, x) = x > 0
-capture(typeof(sort!), ret, x) = (x_ = deepcopy(x),)
-
-"""
-macro post(meta, precond)
-end
-
-macro post(funcexpr)
-  # Expr(:call, :=, :last, _) => Expr(:call)
-end
-
-function transform(expr)
-  # Expr(:(=), Expr(:call, :(Spec.pre), :(typeof)))
-  @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.pre(::typeof($f), $(xs...)) = $body)
-  end
-end
-
-function transformmeta(expr, meta)
-  @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.premeta(::typeof($f), $(xs...)) = Spec.SpecMeta(; expr = $(QuoteNode(body))))
-  end
-end
-
-function adddospec(expr, meta)
-  @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.overdub(specctx::Spec.SpecCtx, ::typeof($f), $(xs...)) = Spec.dospec(specctx, $f, $(xs...)))
-  end
-end
-
-macro pre(funcexpr)
-  esc(transform(funcexpr))
-end
-
-macro pre(precond, meta)
-  expr = quote
-    $(transform(precond))
-    $(transformmeta(precond, meta))
-    $(adddospec(precond, meta))
-  end
-  esc(expr)
-end
-
-macro invariant(args...)
-end
-
-macro ret()
-  esc(:ret)
-end
-
-"Capture"
-macro cap(var::Symbol)
-  esc(Expr(:., :cap, QuoteNode(var)))
-end

@@ -9,31 +9,20 @@ f(x::Float64) = x * sqrt(x)
 # Multiple Preconditions
 "Body mass index"
 bmi(height, weight) = height / weight 
-@pre bmi(height, weight) = height > 0 "Height must be positive"
-@pre bmi(height, weight) = weight > 0 "Weight must be positive"
+@pre bmi(height, weight) = height > 0 "height must be positive"
+@pre bmi(height, weight) = weight > 0 "weight must be positive"
 
+# Post conditions
+"p implies q"
+p → q = !(p && !q)
 
+"is `xs`  sorted"
+issorted(xs) = 
+  all((xs[i] < xs[j] → i < j for i = 1:length(xs) for j = 1:length(xs) if i != j))
 
-"Body mass index"
-bmi(height, weight) = height / weight 
-@pre bmi height > 0 "Height must be positive"
-@pre bmi weight > 0 "Weight must be positive"
+"Is `y` sorted version of `x`"
+isysortedx(xs, ys) = 
+  length(ys) == length(xs) && all((y in xs for y in ys)) && issorted(y)
 
-
-
-@testset "Test Post" begin
-  f(x) = x * x
-  @post ret > 0
-
-  specapply(f, 3)
-
-  g(x) = -1
-  @post g ret > 0
-  @post "Input must be greater than result" g(x) x > ret
-  specapply(g, 3)
-
-function f(x)
-  x
-end
-
-
+mysort(x) = sort(x)
+@post mysort(x) = isysortedx(x, @ret) "Result is sorted version of input"

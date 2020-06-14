@@ -43,31 +43,38 @@ Multiple specifications can be expressed by simply adding additional lines.  For
 ```julia
 "Body mass index"
 bmi(height, weight) = height / weight 
-@pre bmi height > 0 "Height must be positive"
-@pre bmi weight > 0 "Weight must be positive"
+@pre bmi(height, weight) = height > 0 "height must be positive"
+@pre bmi(height, weight) = weight > 0 "weight must be positive"
 ```
 
 The semantics of this is conjuctive: __all__ the different specs should be true.
-This example also shows us that we can attach a description to any specification.
+This example also shows us that we can attach a description to any specification.  
 
 There is a many-to-one relationship between methods and generic functions in Julia.
-One preconditions can be applied to many methods of a generic function
+One preconditions can be applied to many methods of a generic function.
 
 ```julia
+"is x a number?"
+isnumstring(x::String) = occursin(r"^\d+$", x)
+divide(x::String, y::String) = parse(Int64, x) / parse(Int64, y)
+@pre divide(x::String, y::String) = isnumstring(x) && isnumstring(y) "String should be a number"
 
-addelems(x::Tuple, y::Tuple) = 
-addelems(x::Vector, y::Vector) = 
-@pre addelems(x, y) length(x) == length(y) "Must be equal length"
-@pre addelems(x::Tuple, y::Tuple) 
+specapply(divide, "123", "114")
+specapply(divide, "123", "aa4")
+
+divide(x::Int, y::Int) = x / y
+
+"Convert `x` to number if string"
+asnum(x::String) = parse(Int64, x)
+asnum(x) = x
+
+# This precondition Applies to both methods
+@pre divide(x, y) = asnum(y) != 0 "Denominator cannot be zero"
+
+specapply(divide, 100, 0)
+specapply(divide, "100", "0")
 ```
-In this example the first precondition only applies to 
-
-In fact, a good use of Spec is to define a precondition to __all__ methods of a function, in order to give a more rigorous definition of the behaviour that is expected of any of its method.
-
-```julia
-function addelems end
-@pre ...
-```
+In this example the first precondition only applies to the string based method, whereas the second precondition applies to both.
 
 
 ## Post Conditions
@@ -80,7 +87,6 @@ The most canonical example of a specificaiton is that of a sorted list, which st
 "p implies q"
 p → q = !(p && !q)
 
-
 "is `xs`  sorted"
 issorted(xs) = 
   all((xs[i] < xs[j] → i < j for i = 1:length(xs) for j = 1:length(xs) if i != j))
@@ -90,7 +96,7 @@ isysortedx(xs, ys) =
   length(ys) == length(xs) && all((y in xs for y in ys)) && issorted(y)
 
 mysort(x) = sort(x)
-@post mysort isysortedx(x, @ret) "Result is sorted version of input"
+@post mysort(x) = isysortedx(x, @ret) "Result is sorted version of input"
 ```
 
 
