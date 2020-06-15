@@ -94,9 +94,6 @@ function pre end
 "A post-condition"
 function post end
 
-# post(args...) = NoPost()
-# # pre(args...) = NoPre()
-
 function premeta end
 function postmeta end
 # premeta(args...) = SpecMeta(; check = false)

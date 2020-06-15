@@ -81,3 +81,8 @@ end
 # # Post Conditions 
 macro post(xs...)
 end
+
+macro spec(xs...)
+end
+
+export @spec

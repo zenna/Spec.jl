@@ -26,3 +26,12 @@ isysortedx(xs, ys) =
 
 mysort(x) = sort(x)
 @post mysort(x) = isysortedx(x, @ret) "Result is sorted version of input"
+
+# Invariant
+
+struct FriendMatrix
+  x::Matrix
+end
+@invariant x::FriendMatrix issymetric(x)
+
+Spec.overdub(::SpecCtx, x::FriendMatrix, args...) = issymetric(issymetric)
