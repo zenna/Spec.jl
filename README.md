@@ -51,7 +51,9 @@ The semantics of this is conjuctive: __all__ the different specs should be true.
 This example also shows us that we can attach a description to any specification.  
 
 There is a many-to-one relationship between methods and generic functions in Julia.
-One preconditions can be applied to many methods of a generic function.
+One precondition can be applied to many methods of a generic function.
+
+The following example adds specification for a `divide` function, which works on Strings as well as numbers.
 
 ```julia
 "is x a number?"
@@ -79,8 +81,8 @@ In this example the first precondition only applies to the string based method, 
 
 ## Post Conditions
 
-The secondkind of specification is a __post condition__ which is a statement on the output and input of a proecdure after it has executed
-The most canonical example of a specificaiton is that of a sorted list, which states that a list is sorted if for every element `i` and every element `j`, if `i < j` then the position of `i` should be less than the position of `j`  
+The second kind of specification is a __post condition__ which is a statement about the output and input of a proecdure after it has executed.
+A canonical example of a post-condition is that of a sorted list, which states that a list is sorted if for every element `i` and every element `j`, if `i < j` then the position of `i` should be less than the position of `j`  
 
 
 ```julia
@@ -102,24 +104,49 @@ mysort(x) = sort(x)
 
 #### Capturing
 
-As we have seen, `@post` can also input values to a function.  So why bother have two constructs at all?
-The main reason is that Julia procedures can have side effects.
+As we have seen, a post-condition can also see values to a function.  So why bother have two constructs at all?
+The main reason is that Julia procedures can have side-effects.
 
 In the mutating sort function `sort!(xs)` the input is mutated.
-Therefore if we want to check that the result is a sorted version of the input we have a problem, because we have lost our information about the input.
+Therefore if we want to check that the result is a sorted version of the input we have a problem, because we have lost information about the input.
 The solution is to use `@cap` to capture variables in the input
 
 ```julia
 @post sort! isysortedx(@cap(x), @ret) "Result is sorted version of input"
 ```
 
-## Activating Specifications -- Debugging
-By default, pre and post conditions will not affect the behaviour of your program at all.
-To activate specifications we use `@specapply`
+## Using Specifications 
+By default, pre and post conditions will not affect the behaviour of your program at all, and incur no runtime cost.
+To actually check specificatiosn we use `specapply`.
 
+
+```julia
+specapply(f, args...)
 ```
-@specapply mysort(rand(5))
+
+This will evaluate `f(args)`, but for all function applications encountered in the execution of `f(args...)`, each and every associated spec will be checked.
+
+For example, given the specs above for `sort` and `divide`, the following snippeet will check the pre and post conditions:
+
+```julia
+function f(n)
+  x = rand(n)
+  y = sort(x)
+  z = map(divide, y)
+end
+
+specapply(f, n)
 ```
+
+A convenient macro alternative to specapply is  `@specapply`, e.g.:
+
+```julia
+@specapply f(n)
+```
+
+
+### For Debugging
+
 
 One of the best uses of `specapply` is debugging.  Often a runtime error is the ressult of a pre-condition much further up the stack being violated.
 For example:
@@ -135,18 +162,39 @@ Evaluating `f()` gives us this horribly uninfomrative stack trace.
 
 If instead we run this function with `specapply`
 
-## QuickTest
-Testing using Spec can be as simply as writing
+## QuickCheck
+Testing using Spec can be as simple as:
 
 
 ```julia
-@spectest myspec
+spectest(some_generic_function)
 ```
 
 Spec will try to generate inputs that are consistent with the input, then evaluate the function with those input using `specapply`.
 
-Sometimes it will be too difficult for Spec to generative valid inputs, for instance if X or Y or Z.
-Othertimes you might want to test an function with a particular input or input distribution.
-In this caseL
+If there are multiple methods for `some_generic_function`, `spectest` will test all those which have associated specs.
+To spectest a specific method, simply pass a tuple of types as the second argument to `spectest` to apply to only methods matching those types.
+
+```julia
+spectest(sort, (Vector{Int},))
+```
+
+Sometimes it will be too difficult for Spec to generative valid inputs.
+Othertimes you might want to test a function with a particular input distribution.
+In this case, 
+
+```julia
+gen = rng -> rand(rng, Int, 10)
+spectest(sort, (Vector{Int},); gen = gen)
+```
 
 ## Typical setup
+
+Spec
+
+
+# Notes
+
+- The concept of testing all the nested specs within a function call f(x) is orthogonal to pretty much everything else (that follows)
+- For a given method, I may want to test all, some or none of the specs 
+- For a given method and given spec, I may want to test it on (i) one input, (ii) samples from a distribution of inputs, (iii) all inputs, finitely enumerable, (iv) all inputs abstractly.
