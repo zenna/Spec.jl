@@ -55,7 +55,7 @@ Cassette.@context SpecCtx
   pre = checkpre(f, args...)
   cap = capture(f, args...)
   ret = Cassette.recurse(ctx, f, args...)
-  # checkpost(cap, f, args...)
+  # checkpost(cap, ret, f, args...)
   ret
 end
 
@@ -72,12 +72,12 @@ available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
   end
 end
 
-@inline function checkpost(f, args...)
+@inline function checkpost(ret, f, args...)
   for v in available_vals(post)
-    if applicable(post, v(), f, args...)
-      postmeta_ = postmeta(v(), f, args...)
+    if applicable(post, v(), ret, f, args...)
+      postmeta_ = postmeta(v(), ret, f, args...)
       if postmeta_.check
-        !post(v(), f, args...) && throw(PostconditionError(postmeta_, args))
+        !post(v(), ret, f, args...) && throw(PostconditionError(postmeta_, args))
       end
     end
   end
