@@ -48,7 +48,7 @@ Cassette.@context SpecCtx
 # end
 
 @inline function dospec(ctx::SpecCtx, f, args...)
-  @show f, args
+  # @show f, args
   ## For each one that matches pre(specid, f, args...)
   pre = checkpre(f, args...)
   # cap = capture(f, args...)

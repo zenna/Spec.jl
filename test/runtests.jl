@@ -29,6 +29,7 @@ mysort(x) = sort(x)
 
 fakesort(x) = x
 @post fakesort(x) = isysortedx(x, ret) "Result is sorted version of input"
+@test_throws PostconditionError specapply(fakesort, rand(10))
 
 # ## mutating
 # @post sort!(x) = isysortedx(__pre__.x, __ret__) "Result is sorted version of input"
