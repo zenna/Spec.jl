@@ -38,24 +38,24 @@ end
 
 Cassette.@context SpecCtx
 
-# @inline function Cassette.overdub(ctx::SpecCtx, f, args...)
-#   @show f, args
-#   pre = checkpre(f, args...)
-#   cap = capture(f, args...)
-#   ret = Cassette.recurse(ctx, f, args...)
-#   checkpost(cap, f, args...)
-#   ret
-# end
-
-@inline function dospec(ctx::SpecCtx, f, args...)
+@inline function Cassette.overdub(ctx::SpecCtx, f, args...)
   # @show f, args
-  ## For each one that matches pre(specid, f, args...)
   pre = checkpre(f, args...)
   # cap = capture(f, args...)
   ret = Cassette.recurse(ctx, f, args...)
   checkpost(ret, f, args...)
   ret
 end
+
+# @inline function dospec(ctx::SpecCtx, f, args...)
+#   # @show f, args
+#   ## For each one that matches pre(specid, f, args...)
+#   pre = checkpre(f, args...)
+#   # cap = capture(f, args...)
+#   ret = Cassette.recurse(ctx, f, args...)
+#   checkpost(ret, f, args...)
+#   ret
+# end
 
 available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
 

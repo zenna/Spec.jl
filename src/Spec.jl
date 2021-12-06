@@ -15,8 +15,6 @@ include("prepost.jl")
 
 ## Unit Testing
 include("sampletype.jl")
-# include("specs.jl")         # Specifications
-# include("pre.jl")          # Preconditions
 include("testing.jl")      # Testing Tools
 
 ## Helper Macros

@@ -57,7 +57,7 @@ macro pre(precond, meta)
   expr = quote
     $(transform(key, precond))
     $(transformmeta(key, precond, meta))
-    $(adddospec(precond, meta))
+    # $(adddospec(precond, meta))
   end
   esc(expr)
 end
@@ -68,7 +68,7 @@ macro pre(precond)
   expr = quote
     $(transform(key, precond))
     $(transformmeta(key, precond, meta))
-    $(adddospec(precond, meta))
+    # $(adddospec(precond, meta))
   end
   esc(expr)
 end
@@ -106,7 +106,7 @@ macro post(postcond, meta)
   expr = quote
     $(transformpost(key, postcond))
     $(transformmetapost(key, postcond, meta))
-    $(adddospec(postcond, meta))
+    # $(adddospec(postcond, meta))
   end
   esc(expr)
 end
@@ -117,7 +117,7 @@ macro post(postcond)
   expr = quote
     $(transformpost(key, postcond))
     $(transformmetapost(key, postcond, meta))
-    $(adddospec(postcond, meta))
+    # $(adddospec(postcond, meta))
   end
   esc(expr)
 end
