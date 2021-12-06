@@ -1,4 +1,4 @@
-export post, pre, premeta, postmeta, specapply, PreconditionError
+export post, pre, premeta, postmeta, specapply, PreconditionError, PostconditionError
 
 import Cassette
 using Parameters

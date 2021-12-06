@@ -25,10 +25,10 @@ isysortedx(xs, ys) =
   length(ys) == length(xs) && all((y in xs for y in ys)) && issorted(ys)
 
 mysort(x) = sort(x)
-@post mysort(x) = isysortedx(x, ret) "Result is sorted version of input"
+@post mysort(x) = isysortedx(x, __ret__) "Result is sorted version of input"
 
 fakesort(x) = x
-@post fakesort(x) = isysortedx(x, ret) "Result is sorted version of input"
+@post fakesort(x) = isysortedx(x, __ret__) "Result is sorted version of input"
 @test_throws PostconditionError specapply(fakesort, rand(10))
 
 # ## mutating

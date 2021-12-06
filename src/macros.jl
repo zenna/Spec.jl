@@ -52,10 +52,6 @@ function adddospec(expr, meta)
   end
 end
 
-macro pre(funcexpr)
-  esc(transform(funcexpr))
-end
-
 macro pre(precond, meta)
   key = hash(precond)
   expr = quote
@@ -65,6 +61,18 @@ macro pre(precond, meta)
   end
   esc(expr)
 end
+
+macro pre(precond)
+  meta = ""
+  key = hash(precond)
+  expr = quote
+    $(transform(key, precond))
+    $(transformmeta(key, precond, meta))
+    $(adddospec(precond, meta))
+  end
+  esc(expr)
+end
+
 
 macro invariant(args...)
 end
@@ -83,17 +91,28 @@ end
 function transformpost(key, expr)
   # Expr(:(=), Expr(:call, :(Spec.pre), :(typeof)))
   @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.post(::Val{$key}, ret, ::typeof($f), $(xs...)) = $body)
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.post(::Val{$key}, __ret__, ::typeof($f), $(xs...)) = $body)
   end
 end
 
 function transformmetapost(key, expr, meta)
   @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.postmeta(::Val{$key}, ret, ::typeof($f), $(xs...)) = Spec.SpecMeta(; expr = $(QuoteNode(body))))
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.postmeta(::Val{$key}, __ret__, ::typeof($f), $(xs...)) = Spec.SpecMeta(; expr = $(QuoteNode(body))))
   end
 end
 
 macro post(postcond, meta)
+  key = hash(postcond)
+  expr = quote
+    $(transformpost(key, postcond))
+    $(transformmetapost(key, postcond, meta))
+    $(adddospec(postcond, meta))
+  end
+  esc(expr)
+end
+
+macro post(postcond)
+  meta = ""
   key = hash(postcond)
   expr = quote
     $(transformpost(key, postcond))
