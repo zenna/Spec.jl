@@ -3,11 +3,9 @@ export post, pre, premeta, postmeta, specapply, PreconditionError
 import Cassette
 using Parameters
 
-
 ## TODO:
 # 1. pre/post over multiple lines wont work
 # 2. should we refer to current function, or somehow look it up
-
 @with_kw struct SpecMeta
   check::Bool = true    # Actually check this
   desc::String = ""     # Description
@@ -32,10 +30,10 @@ struct PostconditionError <: Exception
 end
 
 function Base.showerror(io::IO, e::PostconditionError)
-  println(io, "Precondition failure: ", e.specmeta.desc)
+  println(io, "Postondition failure: ", e.specmeta.desc)
   println(io, "Expression: ", e.specmeta.expr)
   println(io, "Failed on inputs: ", e.args)
-  println(io, "and on return value", e.ret)
+  println(io, "and on return value: ", e.ret)
 end
 
 Cassette.@context SpecCtx
@@ -53,9 +51,9 @@ Cassette.@context SpecCtx
   @show f, args
   ## For each one that matches pre(specid, f, args...)
   pre = checkpre(f, args...)
-  cap = capture(f, args...)
+  # cap = capture(f, args...)
   ret = Cassette.recurse(ctx, f, args...)
-  # checkpost(cap, ret, f, args...)
+  checkpost(ret, f, args...)
   ret
 end
 
@@ -77,7 +75,7 @@ end
     if applicable(post, v(), ret, f, args...)
       postmeta_ = postmeta(v(), ret, f, args...)
       if postmeta_.check
-        !post(v(), ret, f, args...) && throw(PostconditionError(postmeta_, args))
+        !post(v(), ret, f, args...) && throw(PostconditionError(postmeta_, args, ret))
       end
     end
   end

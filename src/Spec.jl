@@ -4,19 +4,26 @@ module Spec
 using Cassette
 using MLStyle
 using Test
-import Pkg
+# import Pkg
 import Random
 
 import Cassette: overdub
 export overdub
 
 include("util.jl")
-include("newspec.jl")
+include("prepost.jl")
+
+## Unit Testing
 include("sampletype.jl")
 # include("specs.jl")         # Specifications
 # include("pre.jl")          # Preconditions
 include("testing.jl")      # Testing Tools
+
+## Helper Macros
 include("macros.jl")
+
+include("legacy.jl")
+
 
 export @pre,
        @with_pre,

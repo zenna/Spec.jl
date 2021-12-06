@@ -78,11 +78,28 @@ macro cap(var::Symbol)
   esc(Expr(:., :cap, QuoteNode(var)))
 end
 
-# # Post Conditions 
-macro post(xs...)
+## Post Conditions
+
+function transformpost(key, expr)
+  # Expr(:(=), Expr(:call, :(Spec.pre), :(typeof)))
+  @match expr begin
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.post(::Val{$key}, ret, ::typeof($f), $(xs...)) = $body)
+  end
 end
 
-macro spec(xs...)
+function transformmetapost(key, expr, meta)
+  @match expr begin
+    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.postmeta(::Val{$key}, ret, ::typeof($f), $(xs...)) = Spec.SpecMeta(; expr = $(QuoteNode(body))))
+  end
 end
 
-export @spec
+macro post(postcond, meta)
+  key = hash(postcond)
+  expr = quote
+    $(transformpost(key, postcond))
+    $(transformmetapost(key, postcond, meta))
+    $(adddospec(postcond, meta))
+  end
+  esc(expr)
+end
+
