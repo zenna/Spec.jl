@@ -135,13 +135,13 @@ end
 
 specapply(f, n)
 ```
-
+<!-- 
 A convenient macro alternative to specapply is  `@specapply`, e.g.:
 
 ```julia
 @specapply f(n)
 ```
-
+ -->
 
 ### For Debugging
 
@@ -159,7 +159,7 @@ end
 Evaluating `f()` gives us this horribly uninfomrative stack trace.
 
 If instead we run this function with `specapply`
-
+<!-- 
 ## QuickCheck
 Testing using Spec can be as simple as:
 
@@ -184,12 +184,7 @@ In this case,
 ```julia
 gen = rng -> rand(rng, Int, 10)
 spectest(sort, (Vector{Int},); gen = gen)
-```
-
-## Typical setup
-
-Spec
-
+``` -->
 
 # Notes
 
