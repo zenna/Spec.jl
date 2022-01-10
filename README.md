@@ -2,7 +2,7 @@
 
 [![codecov.io](http://codecov.io/github/zenna/Spec.jl/coverage.svg?branch=master)](http://codecov.io/github/zenna/Spec.jl?branch=master)
 
-A package for expressing specifications.
+Spec is a package for expressing specifications.
 
 Spec.jl is small library for specfiying correctness properties of programs.
 These specifications can be used as documentation, for testing, and for debugging.
