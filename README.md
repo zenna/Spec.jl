@@ -136,6 +136,7 @@ A convenient macro alternative to specapply is  `@specapply`, e.g.:
 ```
  -->
 
+<!-- 
 ### For Debugging
 
 
@@ -152,7 +153,7 @@ end
 Evaluating `f()` gives us this horribly uninformative stack trace.
 
 If instead we run this function with `specapply`
-<!-- 
+
 ## QuickCheck
 Testing using Spec can be as simple as:
 
