@@ -117,7 +117,7 @@ specapply(f, args...)
 
 This will evaluate `f(args)`, but for all function applications encountered in the execution of `f(args...)`, each and every associated spec will be checked.
 
-For example, given the specs above for `sort` and `divide`, the following snippeet will check the pre and post conditions:
+For example, given the specs above for `sort` and `divide`, the following snippet will check the pre and post conditions:
 
 ```julia
 function f(n)
