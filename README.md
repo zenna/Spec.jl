@@ -9,9 +9,9 @@ These specifications can be used as documentation, for testing, and for debuggin
 
 # Usage
 
-Toadd:
+<!-- Toadd:
 
-- other meta dontcheck, e.g. existential propositions (example?)
+- other meta dontcheck, e.g. existential propositions (example?) -->
 
 ### Pre Conditions
 
@@ -22,17 +22,10 @@ Preconditions are specified using the `@pre` macro, for example:
 
 ```julia
 f(x::Float64) = x * sqrt(x)
-@pre f(::Float64) x >= 0
+@pre f(x::Float64) = x >= 0
 ```
 
-This should be interpreted as defining a precondition for the method `f(::Int)` that specifies that the input `x` should be non-negative.
-
-If we are feeling lazy we can avoid writing the signature twice, and instead write:
-
-```julia
-f(x::Float64) = x * sqrt(x)
-@pre f x > 0
-```
+This should be interpreted as defining a precondition for the method `f(x::Float64)` that specifies that the input `x` should be non-negative.
 
 This will define the precondition `x > 0` for the most recently defined method for the generic function `f`.
 
@@ -79,7 +72,7 @@ In this example the first precondition only applies to the string based method, 
 
 ## Post Conditions
 
-The second kind of specification is a __post condition__ which is a statement about the output and input of a proecdure after it has executed.
+The second kind of specification is a __post condition__ which is a statement about the output and input of a procedure after it has executed.
 A canonical example of a post-condition is that of a sorted list, which states that a list is sorted if for every element `i` and every element `j`, if `i < j` then the position of `i` should be less than the position of `j`  
 
 
@@ -124,7 +117,7 @@ specapply(f, args...)
 
 This will evaluate `f(args)`, but for all function applications encountered in the execution of `f(args...)`, each and every associated spec will be checked.
 
-For example, given the specs above for `sort` and `divide`, the following snippeet will check the pre and post conditions:
+For example, given the specs above for `sort` and `divide`, the following snippet will check the pre and post conditions:
 
 ```julia
 function f(n)
@@ -143,6 +136,7 @@ A convenient macro alternative to specapply is  `@specapply`, e.g.:
 ```
  -->
 
+<!-- 
 ### For Debugging
 
 
@@ -156,10 +150,10 @@ function f()
 end
 ```
 
-Evaluating `f()` gives us this horribly uninfomrative stack trace.
+Evaluating `f()` gives us this horribly uninformative stack trace.
 
 If instead we run this function with `specapply`
-<!-- 
+
 ## QuickCheck
 Testing using Spec can be as simple as:
 
@@ -184,10 +178,11 @@ In this case,
 ```julia
 gen = rng -> rand(rng, Int, 10)
 spectest(sort, (Vector{Int},); gen = gen)
-``` -->
+``` 
 
 # Notes
 
 - The concept of testing all the nested specs within a function call f(x) is orthogonal to pretty much everything else (that follows)
 - For a given method, I may want to test all, some or none of the specs 
 - For a given method and given spec, I may want to test it on (i) one input, (ii) samples from a distribution of inputs, (iii) all inputs, finitely enumerable, (iv) all inputs abstractly.
+-->
