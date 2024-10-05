@@ -278,3 +278,7 @@ This approach allows you to test both the correctness of your functions and the 
 
 10. Documentation: Use string literals after specifications for explanations.
     Example: `@pre f(x) = x > 0 "Input must be positive for logarithm calculation"`
+
+11. Avoid redundant type checking: Do not add specifications that can be enforced by Julia's type system.
+    Bad example: @pre process(x::String) = typeof(x) == String "Input must be a string"
+    Good example: Simply use Julia's type dispatch: function process(x::String)
