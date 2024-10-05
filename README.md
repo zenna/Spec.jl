@@ -22,10 +22,10 @@ Preconditions are specified using the `@pre` macro, for example:
 
 ```julia
 f(x::Float64) = x * sqrt(x)
-@pre f(::Float64) x >= 0
+@pre f(x::Float64) = x > 0 "x must be positive"
 ```
 
-This should be interpreted as defining a precondition for the method `f(::Int)` that specifies that the input `x` should be non-negative.
+This should be interpreted as defining a precondition for the method `f(::Float64)` that specifies that the input `x` should be positive.
 
 If we are feeling lazy we can avoid writing the signature twice, and instead write:
 
@@ -93,12 +93,13 @@ issorted(xs) =
 
 "Is `y` sorted version of `x`"
 isysortedx(xs, ys) = 
-  length(ys) == length(xs) && all((y in xs for y in ys)) && issorted(y)
+  length(ys) == length(xs) && all((y in xs for y in ys)) && issorted(ys)
 
 mysort(x) = sort(x)
-@post mysort(x) = isysortedx(x, @ret) "Result is sorted version of input"
+@post mysort(x) = isysortedx(x, __ret__) "Result is sorted version of input"
 ```
 
+Note that in the post-condition, we use `__ret__` to refer to the return value of the function.
 
 #### Capturing
 
@@ -110,13 +111,14 @@ Therefore if we want to check that the result is a sorted version of the input w
 The solution is to use `@cap` to capture variables in the input
 
 ```julia
-@post sort! isysortedx(@cap(x), @ret) "Result is sorted version of input"
+@post sort! isysortedx(__pre__.x, __ret__) "Result is sorted version of input"
 ```
+
+Note that we use `__pre__.x` to refer to the pre-state of `x`, and `__ret__` for the return value.
 
 ## Using Specifications 
 By default, pre and post conditions will not affect the behaviour of your program at all, and incur no runtime cost.
-To actually check specificatiosn we use `specapply`.
-
+To actually check specifications we use `specapply` or the `@specapply` macro.
 
 ```julia
 specapply(f, args...)
@@ -124,7 +126,13 @@ specapply(f, args...)
 
 This will evaluate `f(args)`, but for all function applications encountered in the execution of `f(args...)`, each and every associated spec will be checked.
 
-For example, given the specs above for `sort` and `divide`, the following snippeet will check the pre and post conditions:
+A convenient macro alternative to `specapply` is `@specapply`, e.g.:
+
+```julia
+@specapply f(n)
+```
+
+For example, given the specs above for `sort` and `divide`, the following snippet will check the pre and post conditions:
 
 ```julia
 function f(n)
@@ -133,15 +141,8 @@ function f(n)
   z = map(divide, y)
 end
 
-specapply(f, n)
+@specapply f(10)
 ```
-<!-- 
-A convenient macro alternative to specapply is  `@specapply`, e.g.:
-
-```julia
-@specapply f(n)
-```
- -->
 
 ### For Debugging
 
@@ -191,3 +192,24 @@ spectest(sort, (Vector{Int},); gen = gen)
 - The concept of testing all the nested specs within a function call f(x) is orthogonal to pretty much everything else (that follows)
 - For a given method, I may want to test all, some or none of the specs 
 - For a given method and given spec, I may want to test it on (i) one input, (ii) samples from a distribution of inputs, (iii) all inputs, finitely enumerable, (iv) all inputs abstractly.
+
+## Testing with Spec
+
+You can use Spec in combination with Julia's built-in Test module for testing. Here's an example:
+
+```julia
+using Spec
+using Test
+
+f(x::Float64) = x * sqrt(x)
+@pre f(x::Float64) = x > 0 "x must be positive"
+@test @specapply(f(10.0)) == 10.0 * sqrt(10.0)
+@test_throws PreconditionError @specapply(f(-10.0))
+
+# Testing post-conditions
+fakesort(x) = x
+@post fakesort(x) = isysortedx(x, __ret__) "Result is sorted version of input"
+@test_throws PostconditionError @specapply(fakesort(rand(10)))
+```
+
+This approach allows you to test both the correctness of your functions and the effectiveness of your specifications.
