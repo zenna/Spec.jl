@@ -213,3 +213,68 @@ fakesort(x) = x
 ```
 
 This approach allows you to test both the correctness of your functions and the effectiveness of your specifications.
+
+# Mini Guide
+
+1. Preconditions (@pre): Specify valid input conditions.
+   Example: `@pre sqrt(x) = x >= 0 "Input must be non-negative"`
+
+2. Postconditions (@post): Define expected output properties. Use __ret__ to refer to the function's return value.
+   Example: `@post sqrt(x) = abs(__ret__^2 - x) < 1e-10 "Result squared approx input"`
+   Example: `@post push!(v, x) = __ret__ === v && length(__ret__) == length(v) + 1 "Vector returned and size increased by 1"`
+
+3. Invariants (@invariant): State conditions that always hold for a data structure.
+   Example: `@invariant Vector(v) = length(v) >= 0 "Vector length is non-negative"`
+
+4. Placement: Put specifications outside function definitions.
+   Example: 
+   ```julia
+   function f(x)
+       # implementation
+   end
+   @pre f(x) = x > 0
+   @post f(x) = __ret__ > x
+   ```
+
+5. Type specifications: Use Julia's dispatch system to specify different conditions for different methods.
+   Example:
+   ```julia
+   function process(x::Integer)
+       # implementation
+   end
+   function process(x::String)
+       # implementation
+   end
+   @pre process(x::Integer) = x > 0 "Integer input must be positive"
+   @pre process(x::String) = !isempty(x) "String input must not be empty"
+   ```
+
+6. Multiple specifications: Use multiple @pre/@post for complex conditions. Avoid redundancy and incompleteness.
+   Good example (complete):
+   ```julia
+   @post push!(v, x) = __ret__ === v && length(__ret__) == length(v) + 1 "Vector size increased by 1"
+   @post push!(v, x) = __ret__[end] == x "Pushed item is at the end of the vector"
+   ```
+
+   Bad example (incomplete):
+   ```julia
+   @post push!(v, x) = __ret__ === v && length(__ret__) == length(v) + 1 "Vector size increased by 1"
+   ```
+   This specification is incomplete because the postcondition doesn't check if the pushed item is actually at the end of the vector.
+
+7. Logical operators: Use &&, ||, ! for complex conditions.
+   Example: `@pre f(x, y) = x > 0 && y > 0 || x < 0 && y < 0 "Inputs must have same sign"`
+
+8. Quantifiers: Use `all` and `any` for collection-wide conditions.
+   Example: `@post sort(arr) = all(arr[i] <= arr[i+1] for i in 1:length(arr)-1) "Array is sorted"`
+
+9. Checking specifications: Use specapply() or @specapply macro, which checks all nested function calls.
+   Example:
+   ```julia
+   using Test
+   @test_throws PreconditionError specapply(sqrt, -1)
+   @test specapply(sqrt, 4) ≈ 2
+   ```
+
+10. Documentation: Use string literals after specifications for explanations.
+    Example: `@pre f(x) = x > 0 "Input must be positive for logarithm calculation"`
