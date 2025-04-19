@@ -27,15 +27,6 @@ f(x::Float64) = x * sqrt(x)
 
 This should be interpreted as defining a precondition for the method `f(::Float64)` that specifies that the input `x` should be positive.
 
-If we are feeling lazy we can avoid writing the signature twice, and instead write:
-
-```julia
-f(x::Float64) = x * sqrt(x)
-@pre f x > 0
-```
-
-This will define the precondition `x > 0` for the most recently defined method for the generic function `f`.
-
 Multiple specifications can be expressed by simply adding additional lines.  For example:
 
 ```julia
@@ -101,7 +92,7 @@ mysort(x) = sort(x)
 
 Note that in the post-condition, we use `__ret__` to refer to the return value of the function.
 
-#### Capturing
+#### Capturing [Not Implemented]
 
 As we have seen, a post-condition can also see values to a function.  So why bother have two constructs at all?
 The main reason is that Julia procedures can have side-effects.
@@ -187,12 +178,6 @@ gen = rng -> rand(rng, Int, 10)
 spectest(sort, (Vector{Int},); gen = gen)
 ``` -->
 
-# Notes
-
-- The concept of testing all the nested specs within a function call f(x) is orthogonal to pretty much everything else (that follows)
-- For a given method, I may want to test all, some or none of the specs 
-- For a given method and given spec, I may want to test it on (i) one input, (ii) samples from a distribution of inputs, (iii) all inputs, finitely enumerable, (iv) all inputs abstractly.
-
 ## Testing with Spec
 
 You can use Spec in combination with Julia's built-in Test module for testing. Here's an example:
@@ -214,7 +199,7 @@ fakesort(x) = x
 
 This approach allows you to test both the correctness of your functions and the effectiveness of your specifications.
 
-# Mini Guide
+# Mini Guide -- How to write good Specs
 # Final Complete Technical Guide for Spec.jl
 
 1. Preconditions (@pre): Specify valid input conditions.
