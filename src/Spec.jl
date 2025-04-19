@@ -1,35 +1,28 @@
 "Testing and specification"
 module Spec
 
-using Cassette
+using CassetteOverlay
 using MLStyle
 using Test
 # import Pkg
 import Random
 
-import Cassette: overdub
-export overdub
 
+include("overlay.jl")                # brings in SpecOverlay & specapply
 include("util.jl")
-include("prepost.jl")
+include("macros.jl")                 # Defines transform functions
+include("prepost.jl")                # Defines @gen_pre/@gen_post
 
 ## Unit Testing
 include("sampletype.jl")
 include("testing.jl")      # Testing Tools
 
-## Helper Macros
-include("macros.jl")
-
-include("legacy.jl")
-
-
+## Export everything needed
 export @pre,
-       @with_pre,
-       with_pre,
        @post,
        @invariant,
-       walktests,
-       @spec,
-       specapply
+       specapply,
+       PreconditionError,
+       PostconditionError
 
 end

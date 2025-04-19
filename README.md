@@ -213,3 +213,82 @@ fakesort(x) = x
 ```
 
 This approach allows you to test both the correctness of your functions and the effectiveness of your specifications.
+
+# Mini Guide
+# Final Complete Technical Guide for Spec.jl
+
+1. Preconditions (@pre): Specify valid input conditions.
+   Example:
+   ```julia
+   @pre sqrt(x) = x >= 0 "`x` is non-negative"
+   ```
+
+2. Postconditions (@post): Define expected output properties. Use __ret__ to refer to the function's return value.
+   Example:
+   ```julia
+   @post push!(v, x) = __ret__ === v && length(__ret__) == length(v) + 1 "size of returned value is increased by 1"
+   ```
+
+3. Invariants (@invariant): State conditions that always hold for a data structure.
+   Example: `@invariant Vector(v) = length(v) >= 0 "`v`'s length is non-negative"`
+
+4. Placement: Put specifications outside function definitions. Note: you can add specs to functions defined by other libraries.
+   Example:
+   ```julia
+   function f(x)
+       # implementation
+   end
+   @pre f(x) = x > 0
+   @post f(x) = __ret__ > x
+   ```
+
+5. Type specifications: Use Julia's dispatch system to specify different conditions for different methods.
+   Example:
+   ```julia
+   function process(x::Integer)
+       # implementation
+   end
+   function process(x::String)
+       # implementation
+   end
+   @pre process(x::Integer) = x > 0 "`x` is positive"
+   @pre process(x::String) = !isempty(x) "`x` is not empty"
+   ```
+
+6. Multiple specifications: Use multiple @pre/@post for complex conditions. Avoid redundancy and incompleteness.
+   Good example (complete):
+   ```julia
+   @post push!(v, x) = __ret__ === v && length(__ret__) == length(v) + 1 "`v`'s size is increased by 1"
+   @post push!(v, x) = __ret__[end] == x "`x` is at the end of `v`"
+   ```
+   Bad example (redundant):
+   ```julia
+   @pre sort(arr) = length(arr) > 0 "`arr` is not empty"
+   @pre sort(arr) = !isempty(arr) "`arr` has elements"
+   ```
+   Bad example (incomplete):
+   ```julia
+   @post push!(v, x) = __ret__ === v && length(__ret__) == length(v) + 1 "`v`'s size is increased by 1"
+   ```
+   This specification is incomplete because the postcondition doesn't check if the pushed item is actually at the end of the vector.
+
+7. Logical operators: Use &&, ||, ! for complex conditions.
+   Example: `@pre f(x, y) = x > 0 && y > 0 || x < 0 && y < 0 "`x` and `y` have the same sign"`
+
+8. Quantifiers: Use `all` and `any` for collection-wide conditions.
+   Example: `@post sort(arr) = all(arr[i] <= arr[i+1] for i in 1:length(arr)-1) "`arr` is sorted"`
+
+9. Checking specifications: Use specapply() or @specapply macro, which checks all nested function calls.
+   Example:
+   ```julia
+   using Test
+   @test_throws PreconditionError specapply(sqrt, -1)
+   @test specapply(sqrt, 4) ≈ 2
+   ```
+
+10. Documentation: Use string literals after specifications for explanations.
+    Example: `@pre f(x) = x > 0 "`x` is positive for logarithm calculation"`
+
+11. Avoid redundant type checking: Do not add specifications that can be enforced by Julia's type system.
+    Bad example: `@pre process(x::String) = typeof(x) == String "`x` is a string"`
+    Good example: Simply use Julia's type dispatch: `function process(x::String)`
