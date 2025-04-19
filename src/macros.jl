@@ -43,10 +43,6 @@ function _install_overlay(fncall::Expr)
     escfn   = esc(fn)
     escargs = map(esc, args)
 
-    # return quote
-    #     Spec.CassetteOverlay.@overlay SpecTable $escfn($(escargs...)) = prepostcall($escfn, $(escargs...))
-    # end |> esc
-
     r = return quote
       Spec.CassetteOverlay.@overlay Spec.Spectable $fn($(args...)) = Spec.prepostcall($fn, $(args...))
     end

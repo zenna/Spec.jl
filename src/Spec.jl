@@ -4,7 +4,6 @@ module Spec
 using CassetteOverlay
 using MLStyle
 using Test
-# import Pkg
 import Random
 
 
@@ -17,7 +16,7 @@ include("prepost.jl")                # Defines @gen_pre/@gen_post
 include("sampletype.jl")
 include("testing.jl")      # Testing Tools
 
-## Export everything needed
+
 export @pre,
        @post,
        @invariant,

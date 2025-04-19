@@ -92,18 +92,54 @@ end
 
 # TODO: Future tests with keyword arguments will be added later
 
-# ## mutating
-# @post sort!(x) = isysortedx(__pre__.x, __ret__) "Result is sorted version of input"
-
-# function mutate!(x, xs)
-#   push!(x, xs)
-# end
-# @post mutate!(x, xs) = x in __post__.xs "x is in the post state xs"
-
-# # Invariant
-# struct FriendMatrix
-#   x::Matrix
-# end
-# @invariant x::FriendMatrix issymetric(x)
-
-# Spec.overdub(::Spec.SpecCtx, x::FriendMatrix, args...) = issymetric(issymetric)
+@testset "Functions with keyword arguments" begin
+    # Simple function with keyword arguments
+    function calculate_discount(price; discount_percent=0, min_price=0)
+        if price < min_price
+            return price
+        end
+        return price * (1 - discount_percent/100)
+    end
+    
+    @pre calculate_discount(price; discount_percent, min_price) = price >= 0 "Price must be non-negative"
+    @pre calculate_discount(price; discount_percent, min_price) = 0 <= discount_percent <= 100 "Discount must be between 0 and 100"
+    @post calculate_discount(price; discount_percent, min_price) = __ret__ <= price "Discounted price should not exceed original price"
+    
+    # Test successful cases
+    @test specapply(calculate_discount, 100.0, discount_percent=20) == 80.0
+    @test specapply(calculate_discount, 50.0, discount_percent=10, min_price=30) == 45.0
+    @test specapply(calculate_discount, 25.0, discount_percent=10, min_price=30) == 25.0
+    
+    # Test precondition failures
+    @test_throws PreconditionError specapply(calculate_discount, -50.0, discount_percent=10)
+    @test_throws PreconditionError specapply(calculate_discount, 100.0, discount_percent=110)
+    
+    # More complex function with multiple keyword arguments
+    function configure_api(endpoint; timeout=30, retries=3, headers=Dict(), debug=false)
+        config = Dict(
+            "endpoint" => endpoint,
+            "timeout" => timeout,
+            "retries" => retries,
+            "headers" => headers,
+            "debug" => debug
+        )
+        return config
+    end
+    
+    @pre configure_api(endpoint; timeout, retries) = !isempty(endpoint) "Endpoint cannot be empty"
+    @pre configure_api(endpoint; timeout, retries) = timeout > 0 "Timeout must be positive"
+    @pre configure_api(endpoint; timeout, retries) = retries >= 0 "Retries cannot be negative"
+    @post configure_api(endpoint; timeout, retries, headers, debug) = __ret__["endpoint"] == endpoint "Endpoint in config matches input"
+    
+    # Test successful cases
+    @test specapply(configure_api, "https://api.example.com")["endpoint"] == "https://api.example.com"
+    @test specapply(configure_api, "https://api.example.com", timeout=60)["timeout"] == 60
+    @test specapply(configure_api, "https://api.example.com", 
+                    headers=Dict("Authorization" => "Bearer token"))["headers"]["Authorization"] == "Bearer token"
+    @test specapply(configure_api, "https://api.example.com", debug=true)["debug"] == true
+    
+    # Test failures
+    @test_throws PreconditionError specapply(configure_api, "")
+    @test_throws PreconditionError specapply(configure_api, "https://api.example.com", timeout=0)
+    @test_throws PreconditionError specapply(configure_api, "https://api.example.com", retries=-1)
+end
