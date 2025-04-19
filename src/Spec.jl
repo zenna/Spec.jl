@@ -4,11 +4,7 @@ module Spec
 using Cassette
 using MLStyle
 using Test
-# import Pkg
 import Random
-
-import Cassette: overdub
-export overdub
 
 include("util.jl")
 include("prepost.jl")
@@ -19,8 +15,6 @@ include("testing.jl")      # Testing Tools
 
 ## Helper Macros
 include("macros.jl")
-
-include("legacy.jl")
 
 
 export @pre,

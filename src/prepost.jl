@@ -99,9 +99,57 @@ function postmeta end
 capture(args...) = NoCapture()
 
 """
-`specapply(f, args...)`
+    specapply(f, args...; kwargs...)
 
-Evaluate `f(args...)` and check pre and post conditions of all functions encountered.
+Evaluate a function with pre- and postcondition checking.
+
+This function executes `f(args...; kwargs...)` while checking all pre- and postconditions
+that have been defined for the function using the `@pre` and `@post` macros.
+
+## Behavior
+- Before executing the function, all preconditions are checked
+- If any precondition fails, a `PreconditionError` is thrown and the function is not executed
+- If all preconditions pass, the function is executed
+- After execution, all postconditions are checked
+- If any postcondition fails, a `PostconditionError` is thrown
+- If all postconditions pass, the function's return value is returned
+
+## Keyword Arguments
+When calling functions with keyword arguments, the specifications will be checked with
+those keyword values. This allows you to specify different pre/postconditions for different
+keyword argument values.
+
+## Examples
+```jldoctest
+julia> function sqrt_safe(x)
+           sqrt(x)
+       end;
+
+julia> # Define preconditions and postconditions
+       @pre sqrt_safe(x) = x >= 0 "Input must be non-negative";
+       @post sqrt_safe(__ret__, x) = __ret__ >= 0 "Output must be non-negative";
+
+julia> # Use specapply to call the function with specification checking
+       specapply(sqrt_safe, 4.0)
+2.0
+
+julia> try
+           specapply(sqrt_safe, -1.0)
+       catch e
+           println("Caught expected error: \$(e isa PreconditionError)")
+       end
+Caught expected error: true
+
+julia> # Function with keyword arguments
+       function search(text; pattern="", case_sensitive=true)
+           if case_sensitive
+               count(==(pattern), text)
+           else
+               count(==(lowercase(pattern)), lowercase(text))
+           end
+       end;
+
+julia> @pre search(text; pattern) = !isempty(pattern) "Search pattern cannot be empty";
 
 ```
 f(x) = abs(x)
