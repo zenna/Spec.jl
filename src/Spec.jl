@@ -13,10 +13,6 @@ include("expr.jl")                   # Expression utilities
 include("macros.jl")                 # Defines transform functions
 include("prepost.jl")                # Defines @gen_pre/@gen_post
 
-## Unit Testing
-include("sampletype.jl")
-include("testing.jl")      # Testing Tools
-
 
 export @pre,
        @post,
