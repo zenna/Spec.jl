@@ -2,16 +2,42 @@
 function _install_overlay(fdef::Expr)
     @assert is_top_level_func_def(fdef)
     fcall_expr = extract_function_call(fdef)
-    lhs_call_expr = fcall_expr
-    rhs_prepostcallexpr = Expr(:call, :(Spec.prepostcall), call_expr_to_call_args(fcall_expr)...)
 
-    r = quote
-      Spec.CassetteOverlay.@overlay Spec.Spectable ($lhs_call_expr = $rhs_prepostcallexpr)
+    # Replace all keyword default values with a reference to the keyword
+    # variable itself, e.g. `timeout = 30`  ->  `timeout = timeout` so that the
+    # run‑time value supplied by the caller is forwarded to `prepostcall`.
+    # Build LHS (wrapper signature) and RHS (forwarding call) simultaneously so
+    # that keyword arguments are *names only* on the LHS (no default value
+    # needed) but are *forwarded* with their run‑time value on the RHS.
+
+    lhs_call_expr, rhs_prepostcallexpr = @match fcall_expr begin
+        # Methods that contain keyword arguments --------------------------------
+        Expr(:call, fn_, Expr(:parameters, kwargs__...), posargs__...) => begin
+            # Keep the original keyword expressions (with their default values)
+            kw_lhs  = kwargs__                          # e.g. timeout=30
+
+            # In the RHS forward the **variable** carrying the run‑time value
+            kw_pairs = [Expr(:kw, kw.args[1], kw.args[1]) for kw in kwargs__]
+
+            lhs = Expr(:call, fn_, Expr(:parameters, kw_lhs...), posargs__...)
+
+            rhs_args = Any[Expr(:parameters, kw_pairs...), fn_, posargs__...]
+            rhs = Expr(:call, :(Spec.prepostcall), rhs_args...)
+
+            (lhs, rhs)
+        end
+
+        # Methods without keyword arguments ------------------------------------
+        Expr(:call, fn_, posargs__...) => begin
+            lhs = fcall_expr
+            rhs = Expr(:call, :(Spec.prepostcall), fn_, posargs__...)
+            (lhs, rhs)
+        end
     end
-    # @show r
-    # dump(r; maxdepth = 15)
-    # return :(1+1)
-    return r
+
+    quote
+        Spec.CassetteOverlay.@overlay Spec.Spectable ($lhs_call_expr = $rhs_prepostcallexpr)
+    end
 end
 
 macro pre(precond, msg = "")
