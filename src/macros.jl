@@ -104,49 +104,6 @@ function extract_fdef_components(expr::Expr)
     _ => throw(ArgumentError("Invalid expression: $expr"))
   end
 end
-# @pre extract_fdef_components(x) = is_top_level_func_def(x)
-
-# function build_call_expr(fn::Symbol, ...)
-#   Expr(:call, fn, args...)
-# end
-
-# """
-#     func_def_to_call_args(expr::Expr)
-
-# Quite often we need an AST transformation that maps a function definitio like 
-
-# ```julia
-# function f(x, y)
-#   x + y
-# end
-# ```
-
-# Into something like 
-
-# ```julia
-# function some_wrapper_f(ctx, ::typeof(f), x, y; kwa)
-#   # ... do some stuff
-#   ret = f(x, y; kwa = kwa)
-#   # ... do some more stuff
-#   return ret
-# end
-# ```
-
-# ## Example
-
-# ```jldoctest
-# julia> x = :(f(x; y) = x + y)
-
-# julia> time
-
-# julia> Expr(:call, :time, func_def_to_call_args(x)...)
-# :(time(f, x; y = y))
-# ```
-# """
-
-# function func_def_to_call(expr::Expr)
-#   # GPT Implement ME
-# end
 
 function call_expr(; fn, args, kwargs)
     # @show fn
@@ -285,38 +242,7 @@ julia> specapply(greeting, "World", prefix="Greetings")
 "Greetings, World!"
 ```
 """
-# macro pre(precond, meta)
-#   key = hash(precond)
-#   expr = quote
-#     $(transform(key, precond))
-#     $(transformmeta(key, precond, meta))
-#     # $(adddospec(precond, meta))
-#   end
-#   esc(expr)
-# end
-
-# macro pre(precond)
-#   meta = ""
-#   key = hash(precond)
-#   expr = quote
-#     $(transform(key, precond))
-#     $(transformmeta(key, precond, meta))
-#     # $(adddospec(precond, meta))
-#   end
-#   esc(expr)
-# end
-
-# macro invariant(args...)
-# end
-
-# macro ret()
-#   esc(:ret)
-# end
-
-# "Capture"
-# macro cap(var::Symbol)
-#   esc(Expr(:., :cap, QuoteNode(var)))
-# end
+macro pre end
 
 ## Post Conditions
 
@@ -397,25 +323,5 @@ julia> specapply(format_name, "John", "Smith", title="Dr.")
 "Dr. John Smith"
 ```
 """
-# macro post(postcond, meta)
-#   key = hash(postcond)
-#   expr = quote
-#     $(transformpost(key, postcond))
-#     $(transformmetapost(key, postcond, meta))
-#     # $(adddospec(postcond, meta))
-#   end
-#   esc(expr)
-# end
-
-# macro post(postcond)
-#   meta = ""
-#   key = hash(postcond)
-#   expr = quote
-#     $(transformpost(key, postcond))
-#     $(transformmetapost(key, postcond, meta))
-#     # $(adddospec(postcond, meta))
-#   end
-#   esc(expr)
-# end
-
+macro post end
 
