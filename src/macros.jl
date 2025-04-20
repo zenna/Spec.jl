@@ -149,10 +149,10 @@ end
 # end
 
 function call_expr(; fn, args, kwargs)
-    @show fn
-    @show args
-    @show kwargs
-    @show Expr(:call, fn, [kwargs; args]...)
+    # @show fn
+    # @show args
+    # @show kwargs
+    Expr(:call, fn, [kwargs; args]...)
 end
 
 # Utility: ensure an overlay wrapper exists for this `fncall`
@@ -200,7 +200,7 @@ macro post(postcond, msg = "")
 
     # Need to extract the function call
     fncall = extract_function_call(postcond)
-    ov   = Spec._install_overlay(fncall)
+    ov   = Spec._install_overlay(postcond)
 
     return Expr(:block, gen1, gen2, ov) |> esc
 end
@@ -320,79 +320,36 @@ julia> specapply(greeting, "World", prefix="Greetings")
 
 ## Post Conditions
 
-# function _transformpost(key, f, body, positional_args, default_args, keyword_args)
-#   # Produces expression of the form:
-#   # Spec.post(::Val{key}, __ret__, ::typeof(f), positional_args..., default_args..., keyword_args...) = body
-#   method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
-#   if !isempty(keyword_args)
-#       method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
-#   end
-#   :(Spec.post($(method_signature.args...)) = $body)
-# end
+function _transformpost(key, f, body, positional_args, default_args, keyword_args)
+  # Produces expression of the form:
+  # Spec.post(Val{key}, __ret__, typeof(f), positional_args..., default_args..., keyword_args...) = body
+  method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
+  if !isempty(keyword_args)
+      method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
+  end
+  expr = :(Spec.post($(method_signature.args...)) = $body)
+  return expr
+end
 
-# function transformpost(key, expr)
-#   @match expr begin
-#     Expr(:(=), Expr(:call, f, xs...), body) => begin
-#         positional_args = []
-#         default_args = []
-#         keyword_args = []
-        
-#         for arg in xs
-#             if arg isa Expr
-#                 if arg.head == :parameters
-#                     append!(keyword_args, arg.args)
-#                 elseif arg.head == :kw
-#                     push!(default_args, arg)
-#                 else
-#                     push!(positional_args, arg)
-#                 end
-#             else
-#                 push!(positional_args, arg)
-#             end
-#         end
-        
-#         _transformpost(key, f, body, positional_args, default_args, keyword_args)
-#     end
-#     _ => throw(ArgumentError("Invalid expression: $expr"))
-#   end
-# end
+function transformpost(key, expr)
+    components = extract_fdef_components(expr)
+    _transformpost(key, components.f, components.body, components.positional_args, components.default_args, components.keyword_args)
+end
 
-# function _transformmetapost(key, f, body, meta, positional_args, default_args, keyword_args)
-#   # Produces expression of the form:
-#   # Spec.postmeta(::Val{key}, __ret__, ::typeof(f), positional_args..., default_args..., keyword_args...) = SpecMeta(...)
-#   method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
-#   if !isempty(keyword_args)
-#       method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
-#   end
-#   :(Spec.postmeta($(method_signature.args...)) = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
-# end
+function _transformmetapost(key, f, body, meta, positional_args, default_args, keyword_args)
+  # Produces expression of the form:
+  # Spec.postmeta(::Val{key}, __ret__, ::typeof(f), positional_args..., default_args..., keyword_args...) = SpecMeta(...)
+  method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
+  if !isempty(keyword_args)
+      method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
+  end
+  :(Spec.postmeta($(method_signature.args...)) = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
+end
 
-# function transformmetapost(key, expr, meta)
-#   @match expr begin
-#     Expr(:(=), Expr(:call, f, xs...), body) => begin
-#         positional_args = []
-#         default_args = []
-#         keyword_args = []
-        
-#         for arg in xs
-#             if arg isa Expr
-#                 if arg.head == :parameters
-#                     append!(keyword_args, arg.args)
-#                 elseif arg.head == :kw
-#                     push!(default_args, arg)
-#                 else
-#                     push!(positional_args, arg)
-#                 end
-#             else
-#                 push!(positional_args, arg)
-#             end
-#         end
-        
-#         _transformmetapost(key, f, body, meta, positional_args, default_args, keyword_args)
-#     end
-#     _ => throw(ArgumentError("Invalid expression: $expr"))
-#   end
-# end
+function transformmetapost(key, expr, meta)
+    components = extract_fdef_components(expr)
+    _transformmetapost(key, components.f, components.body, meta, components.positional_args, components.default_args, components.keyword_args)
+end
 
 """
     @post function_call(__ret__, args...; kwargs...) = condition "description"
