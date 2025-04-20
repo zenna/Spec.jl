@@ -1,9 +1,14 @@
 using Test
 using Spec
+using Spec: is_call_expr,
+            is_top_level_func_def,
+            extract_function_call,
+            call_expr_to_call_args,
+            extract_fdef_components,
+            is_valid_expr
 
 # Import the module that contains the expr.jl functions
 # Adjust the import statement based on your actual module structure
-include("../src/expr.jl")
 
 @testset "Expression Utilities Tests" begin
     
@@ -24,7 +29,9 @@ include("../src/expr.jl")
         @test is_call_expr(:(f(x...)))
         
         # Not a call expression
-        @test !is_call_expr(:(x + y))
+        @test is_call_expr(:(x + y))
+
+        ## TODO ad some invalid call expr forms
     end
     
     @testset "is_top_level_func_def" begin
