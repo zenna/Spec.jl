@@ -1,16 +1,58 @@
 # f(x, y=1; z=2) => @overlay f(x, y=1; z=2) = prepostcall(f, x, y=1; z=2)
+#############################
+# Overlay installation utils #
+#############################
+
+# NOTE:  When several `@pre`/`@post` specifications are declared for the **same
+#        function call signature**, we still only need *one* Cassette overlay
+#        that redirects the call to `prepostcall`.  Emitting the overlay
+#        repeatedly leads to Julia warning about method re‑definitions.  We
+#        therefore keep track of the overlays we have already generated, keyed
+#        by a hash of the extracted call expression.  Hash collisions are
+#        practically impossible here and the consequence of a collision would
+#        merely be to suppress another identical overlay definition, which is
+#        harmless.
+
+const _installed_overlay_keys = Set{UInt}()
+
+_overlay_key(expr::Expr) = hash(expr)
+
+"""Return `true` if an overlay for this call expression has already been
+installed during the current Julia session."""
+function _overlay_installed(expr::Expr)
+    key = _overlay_key(expr)
+    return key in _installed_overlay_keys
+end
+
+"""Record that an overlay for this call expression has been installed."""
+function _record_overlay!(expr::Expr)
+    push!(_installed_overlay_keys, _overlay_key(expr))
+    return nothing
+end
+
+"""Create a Cassette overlay for the function call represented by `fdef` *once*.
+
+If an overlay for the same call signature has already been generated earlier in
+the session, this function returns an **empty expression** so that the caller
+can safely splice it into the macro expansion without introducing duplicate
+methods."""
 function _install_overlay(fdef::Expr)
     @assert is_top_level_func_def(fdef)
     fcall_expr = extract_function_call(fdef)
+
+    # Avoid redefining the same overlay multiple times
+    if _overlay_installed(fcall_expr)
+        return Expr(:block)               # no‑op – already installed
+    end
+
     lhs_call_expr = fcall_expr
     rhs_prepostcallexpr = Expr(:call, :(Spec.prepostcall), call_expr_to_call_args(fcall_expr)...)
 
     r = quote
       Spec.CassetteOverlay.@overlay Spec.Spectable ($lhs_call_expr = $rhs_prepostcallexpr)
     end
-    # @show r
-    # dump(r; maxdepth = 15)
-    # return :(1+1)
+
+    _record_overlay!(fcall_expr)
     return r
 end
 
