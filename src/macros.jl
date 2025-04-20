@@ -1,124 +1,111 @@
-"""
-For writing post-specifications
+# f(x, y=1; z=2) => @overlay f(x, y=1; z=2) = prepostcall(f, x, y=1; z=2)
+function _install_overlay(fdef::Expr)
+    @assert is_top_level_func_def(fdef)
+    fcall_expr = extract_function_call(fdef)
 
-```
-"returns named tuple with `key` removed"
-rmkey(nt::NamedTuple, key::Symbol) = (; (k => v for (k, v) in pairs(nt) if k != key)...)
-@pre "Key must exist to be removed" rmkey(nt, key) = key in keys(nt)
-@post rmkey(ret, nt, key) = (k = setdiff(keys(ret), keys(nt)); length(k) == 1 && k[1] == key)
-```
+    # Replace all keyword default values with a reference to the keyword
+    # variable itself, e.g. `timeout = 30`  ->  `timeout = timeout` so that the
+    # run‑time value supplied by the caller is forwarded to `prepostcall`.
+    # Build LHS (wrapper signature) and RHS (forwarding call) simultaneously so
+    # that keyword arguments are *names only* on the LHS (no default value
+    # needed) but are *forwarded* with their run‑time value on the RHS.
 
-expands to
+    lhs_call_expr, rhs_prepostcallexpr = @match fcall_expr begin
+        # Methods that contain keyword arguments --------------------------------
+        Expr(:call, fn_, Expr(:parameters, kwargs__...), posargs__...) => begin
+            # Keep the original keyword expressions (with their default values)
+            kw_lhs  = kwargs__                          # e.g. timeout=30
 
-```
-Spec.premeta(::typeof(rmkey), nt, key) = Spec.SpecMeta(; desc = "Key must be exist to be removed")
-Spec.pre(::typeof(rmkey), nt, key) = key in keys(nt)
-Spec.post(::typeof(rmkey), ret, nt, key) = (k = setdiff(keys(ret), keys(nt)); length(k) == 1 && k[1] == key)
-```
+            # In the RHS forward the **variable** carrying the run‑time value
+            kw_pairs = [Expr(:kw, kw.args[1], kw.args[1]) for kw in kwargs__]
 
-For mutating functions, we may wish to capture information before they are run.
+            lhs = Expr(:call, fn_, Expr(:parameters, kw_lhs...), posargs__...)
 
-```
-@pre sort!(x::Vector{Int}) = (x_ = deepcopy(x))
-@capture sort!(x) = (x = deepcopy(x))
-@post sort!(cap, ret, x) = ret == sort(cap.x)
-```
-expands to:
+            rhs_args = Any[Expr(:parameters, kw_pairs...), fn_, posargs__...]
+            rhs = Expr(:call, :(Spec.prepostcall), rhs_args...)
 
-```
-pre(typeof(sort!), x::Vector{Int})
-post(::typeof(f), ret, x) = x > 0
-capture(typeof(sort!), ret, x) = (x_ = deepcopy(x),)
+            (lhs, rhs)
+        end
 
-"""
+        # Methods without keyword arguments ------------------------------------
+        Expr(:call, fn_, posargs__...) => begin
+            lhs = fcall_expr
+            rhs = Expr(:call, :(Spec.prepostcall), fn_, posargs__...)
+            (lhs, rhs)
+        end
+    end
+
+    quote
+        Spec.CassetteOverlay.@overlay Spec.Spectable ($lhs_call_expr = $rhs_prepostcallexpr)
+    end
+end
+
+macro pre(precond, msg = "")
+    key = hash(precond)                      # same hashing trick as upstream
+
+    # 1. Generate predicate & metadata methods — existing helpers
+    gen1 = Spec.transform(key, precond)
+    gen2 = Spec.transformmeta(key, precond, msg)
+
+    # 2. Ensure overlay exists for this function signature
+    # Need to extract the function call
+    fncall = extract_function_call(precond)
+    ov   = Spec._install_overlay(precond)
+
+    return Expr(:block, gen1, gen2, ov) |> esc
+end
+
+
+macro post(postcond, msg = "")
+    key  = hash(postcond)
+
+    gen1 = Spec.transformpost(key, postcond)
+    gen2 = Spec.transformmetapost(key, postcond, msg)
+
+    # Need to extract the function call
+    fncall = extract_function_call(postcond)
+    ov   = Spec._install_overlay(postcond)
+
+    return Expr(:block, gen1, gen2, ov) |> esc
+end
 
 
 function _transform(key, f, body, positional_args, default_args, keyword_args)
   # Produces expression of the form:
   # Spec.pre(Val{key}, typeof(f), positional_args..., default_args..., keyword_args...) = body
+
   method_signature = Expr(:call, :(::Val{$key}), :(::typeof($f)), positional_args..., default_args...)
   if !isempty(keyword_args)
       method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
   end
-  :(Spec.pre($(method_signature.args...)) = $body)
+  expr = :(Spec.pre($(method_signature.args...)) = $body)
+  # dump(expr)
+  return expr
 end
 
-function transform(key, expr)
-    @match expr begin
-        # Match function definitions with any combination of arguments
-        Expr(:(=), Expr(:call, f, args...), body) => begin
-            # Initialize argument lists
-            positional_args = []
-            default_args = []
-            keyword_args = []
-
-            # Iterate over the arguments
-            for arg in args
-                if arg isa Expr
-                    if arg.head == :parameters
-                        # Collect keyword arguments
-                        append!(keyword_args, arg.args)
-                    elseif arg.head == :kw
-                        # Collect default positional arguments
-                        push!(default_args, arg)
-                    else
-                        # Collect positional arguments
-                        push!(positional_args, arg)
-                    end
-                else
-                    # Collect positional arguments
-                    push!(positional_args, arg)
-                end
-            end
-            # @show key
-            # @show positional_args
-            # @show default_args
-            # @show keyword_args
-            _transform(key, f, body, positional_args, default_args, keyword_args)
-        end
+# @pre f(x, y=1; z=2) = x + y + z > 0 => Spec.pre(::Val{0x634c7875d71b9857}, f, x, y=1, z-2) = x + y + z > 0
+function transform(key, fdefexpr)
+    _call_expr = extract_function_call(fdefexpr)
+    body = extract_fdef_components(fdefexpr).body
+    lhs = @match _call_expr begin
+        Expr(:call, fn, Expr(:parameters, kwargs...), args...) => Expr(:call, :(Spec.pre), Expr(:parameters, kwargs...), :(::Val{$key}), :(::typeof($fn)), args...)
+        Expr(:call, fn, args...) => Expr(:call, :(Spec.pre), :(::Val{$key}), :(::typeof($fn)), args...)
     end
+    :($lhs = $body)
 end
 
-function _transformmeta(key, f, body, meta, positional_args, default_args, keyword_args)
-  # Produces expression of the form:
-  # Spec.premeta(::Val{key}, ::typeof(f), positional_args..., default_args..., keyword_args...) = SpecMeta(...)
-  method_signature = Expr(:call, :(::Val{$key}), :(::typeof($f)), positional_args..., default_args...)
-  if !isempty(keyword_args)
-      method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
+function _transformmeta(key, fdefexpr, meta)
+  _call_expr = extract_function_call(fdefexpr)
+  body = extract_fdef_components(fdefexpr).body
+  lhs = @match _call_expr begin
+      Expr(:call, fn, Expr(:parameters, kwargs...), args...) => Expr(:call, :(Spec.premeta), Expr(:parameters, kwargs...), :(::Val{$key}), :(::typeof($fn)), args...)
+      Expr(:call, fn, args...) => Expr(:call, :(Spec.premeta), :(::Val{$key}), :(::typeof($fn)), args...)
   end
-  :(Spec.premeta($(method_signature.args...)) = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
+  :($lhs = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
 end
 
 function transformmeta(key, expr, meta)
-  @match expr begin
-      Expr(:(=), Expr(:call, f, args...), body) => begin
-          positional_args = []
-          default_args = []
-          keyword_args = []
-          for arg in args
-              if arg isa Expr
-                  if arg.head == :parameters
-                      append!(keyword_args, arg.args)
-                  elseif arg.head == :kw
-                      push!(default_args, arg)
-                  else
-                      push!(positional_args, arg)
-                  end
-              else
-                  push!(positional_args, arg)
-              end
-          end
-          
-          _transformmeta(key, f, body, meta, positional_args, default_args, keyword_args)
-      end
-      _ => throw(ArgumentError("Invalid expression: $expr"))
-  end
-end
-
-function adddospec(expr, meta)
-  @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => :(Spec.overdub(specctx::Spec.SpecCtx, ::typeof($f), $(xs...)) = Spec.dospec(specctx, $f, $(xs...)))
-  end
+  _transformmeta(key, expr, meta)
 end
 
 """
@@ -168,113 +155,28 @@ julia> specapply(greeting, "World", prefix="Greetings")
 "Greetings, World!"
 ```
 """
-macro pre(precond, meta)
-  key = hash(precond)
-  expr = quote
-    $(transform(key, precond))
-    $(transformmeta(key, precond, meta))
-    # $(adddospec(precond, meta))
-  end
-  esc(expr)
-end
-
-macro pre(precond)
-  meta = ""
-  key = hash(precond)
-  expr = quote
-    $(transform(key, precond))
-    $(transformmeta(key, precond, meta))
-    # $(adddospec(precond, meta))
-  end
-  esc(expr)
-end
-
-macro invariant(args...)
-end
-
-macro ret()
-  esc(:ret)
-end
-
-"Capture"
-macro cap(var::Symbol)
-  esc(Expr(:., :cap, QuoteNode(var)))
-end
+macro pre end
 
 ## Post Conditions
 
-function _transformpost(key, f, body, positional_args, default_args, keyword_args)
-  # Produces expression of the form:
-  # Spec.post(::Val{key}, __ret__, ::typeof(f), positional_args..., default_args..., keyword_args...) = body
-  method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
-  if !isempty(keyword_args)
-      method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
-  end
-  :(Spec.post($(method_signature.args...)) = $body)
-end
-
-function transformpost(key, expr)
-  @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => begin
-        positional_args = []
-        default_args = []
-        keyword_args = []
-        
-        for arg in xs
-            if arg isa Expr
-                if arg.head == :parameters
-                    append!(keyword_args, arg.args)
-                elseif arg.head == :kw
-                    push!(default_args, arg)
-                else
-                    push!(positional_args, arg)
-                end
-            else
-                push!(positional_args, arg)
-            end
-        end
-        
-        _transformpost(key, f, body, positional_args, default_args, keyword_args)
+function transformpost(key, fdefexpr)
+    _call_expr = extract_function_call(fdefexpr)
+    body = extract_fdef_components(fdefexpr).body
+    lhs = @match _call_expr begin
+        Expr(:call, fn, Expr(:parameters, kwargs...), args...) => Expr(:call, :(Spec.post), Expr(:parameters, kwargs...), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
+        Expr(:call, fn, args...) => Expr(:call, :(Spec.post), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
     end
-    _ => throw(ArgumentError("Invalid expression: $expr"))
-  end
+    :($lhs = $body)
 end
 
-function _transformmetapost(key, f, body, meta, positional_args, default_args, keyword_args)
-  # Produces expression of the form:
-  # Spec.postmeta(::Val{key}, __ret__, ::typeof(f), positional_args..., default_args..., keyword_args...) = SpecMeta(...)
-  method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
-  if !isempty(keyword_args)
-      method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
-  end
-  :(Spec.postmeta($(method_signature.args...)) = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
-end
-
-function transformmetapost(key, expr, meta)
-  @match expr begin
-    Expr(:(=), Expr(:call, f, xs...), body) => begin
-        positional_args = []
-        default_args = []
-        keyword_args = []
-        
-        for arg in xs
-            if arg isa Expr
-                if arg.head == :parameters
-                    append!(keyword_args, arg.args)
-                elseif arg.head == :kw
-                    push!(default_args, arg)
-                else
-                    push!(positional_args, arg)
-                end
-            else
-                push!(positional_args, arg)
-            end
-        end
-        
-        _transformmetapost(key, f, body, meta, positional_args, default_args, keyword_args)
+function transformmetapost(key, fdefexpr, meta)
+    _call_expr = extract_function_call(fdefexpr)
+    body = extract_fdef_components(fdefexpr).body
+    lhs = @match _call_expr begin
+        Expr(:call, fn, Expr(:parameters, kwargs...), args...) => Expr(:call, :(Spec.postmeta), Expr(:parameters, kwargs...), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
+        Expr(:call, fn, args...) => Expr(:call, :(Spec.postmeta), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
     end
-    _ => throw(ArgumentError("Invalid expression: $expr"))
-  end
+    :($lhs = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
 end
 
 """
@@ -323,25 +225,5 @@ julia> specapply(format_name, "John", "Smith", title="Dr.")
 "Dr. John Smith"
 ```
 """
-macro post(postcond, meta)
-  key = hash(postcond)
-  expr = quote
-    $(transformpost(key, postcond))
-    $(transformmetapost(key, postcond, meta))
-    # $(adddospec(postcond, meta))
-  end
-  esc(expr)
-end
-
-macro post(postcond)
-  meta = ""
-  key = hash(postcond)
-  expr = quote
-    $(transformpost(key, postcond))
-    $(transformmetapost(key, postcond, meta))
-    # $(adddospec(postcond, meta))
-  end
-  esc(expr)
-end
-
+macro post end
 
