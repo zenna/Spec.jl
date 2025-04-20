@@ -70,7 +70,11 @@ end
     if applicable(post, v(), ret, f, args...)
       postmeta_ = postmeta(v(), ret, f, args...)
       if postmeta_.check
-        !post(v(), ret, f, args...) && throw(PostconditionError(postmeta_, args, ret))
+        if !isempty(kwargs)
+          !post(v(), ret, f, args...; kwargs...) && throw(PostconditionError(postmeta_, (args..., kwargs), ret))
+        else
+          !post(v(), ret, f, args...) && throw(PostconditionError(postmeta_, args, ret))
+        end
       end
     end
   end

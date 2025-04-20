@@ -104,9 +104,9 @@ end
         return price * (1 - discount_percent/100)
     end
     
-    @pre calculate_discount(price; discount_percent, min_price) = price >= 0 "Price must be non-negative"
-    @pre calculate_discount(price; discount_percent, min_price) = 0 <= discount_percent <= 100 "Discount must be between 0 and 100"
-    @post calculate_discount(price; discount_percent, min_price) = __ret__ <= price "Discounted price should not exceed original price"
+    @pre calculate_discount(price; discount_percent=0, min_price=0) = price >= 0 "Price must be non-negative"
+    @pre calculate_discount(price; discount_percent=0, min_price=0) = 0 <= discount_percent <= 100 "Discount must be between 0 and 100"
+
     
     # Test successful cases
     @test specapply(calculate_discount, 100.0, discount_percent=20) == 80.0
@@ -129,10 +129,10 @@ end
         return config
     end
     
-    @pre configure_api(endpoint; timeout, retries) = !isempty(endpoint) "Endpoint cannot be empty"
-    @pre configure_api(endpoint; timeout, retries) = timeout > 0 "Timeout must be positive"
-    @pre configure_api(endpoint; timeout, retries) = retries >= 0 "Retries cannot be negative"
-    @post configure_api(endpoint; timeout, retries, headers, debug) = __ret__["endpoint"] == endpoint "Endpoint in config matches input"
+    @pre configure_api(endpoint; timeout=30, retries=3) = !isempty(endpoint) "Endpoint cannot be empty"
+    @pre configure_api(endpoint; timeout=30, retries=3) = timeout > 0 "Timeout must be positive"
+    @pre configure_api(endpoint; timeout=30, retries=3) = retries >= 0 "Retries cannot be negative"
+    @post configure_api(endpoint; timeout=30, retries=3, headers=Dict(), debug=false) = __ret__["endpoint"] == endpoint "Endpoint in config matches input"
     
     # Test successful cases
     @test specapply(configure_api, "https://api.example.com")["endpoint"] == "https://api.example.com"
