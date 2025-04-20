@@ -1,5 +1,3 @@
-
-
 # f(x, y=1; z=2) => @overlay f(x, y=1; z=2) = prepostcall(f, x, y=1; z=2)
 function _install_overlay(fdef::Expr)
     @assert is_top_level_func_def(fdef)
@@ -135,35 +133,24 @@ macro pre end
 
 ## Post Conditions
 
-function _transformpost(key, f, body, positional_args, default_args, keyword_args)
-  # Produces expression of the form:
-  # Spec.post(Val{key}, __ret__, typeof(f), positional_args..., default_args..., keyword_args...) = body
-  method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
-  if !isempty(keyword_args)
-      method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
-  end
-  expr = :(Spec.post($(method_signature.args...)) = $body)
-  return expr
+function transformpost(key, fdefexpr)
+    _call_expr = extract_function_call(fdefexpr)
+    body = extract_fdef_components(fdefexpr).body
+    lhs = @match _call_expr begin
+        Expr(:call, fn, Expr(:parameters, kwargs...), args...) => Expr(:call, :(Spec.post), Expr(:parameters, kwargs...), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
+        Expr(:call, fn, args...) => Expr(:call, :(Spec.post), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
+    end
+    :($lhs = $body)
 end
 
-function transformpost(key, expr)
-    components = extract_fdef_components(expr)
-    _transformpost(key, components.f, components.body, components.positional_args, components.default_args, components.keyword_args)
-end
-
-function _transformmetapost(key, f, body, meta, positional_args, default_args, keyword_args)
-  # Produces expression of the form:
-  # Spec.postmeta(::Val{key}, __ret__, ::typeof(f), positional_args..., default_args..., keyword_args...) = SpecMeta(...)
-  method_signature = Expr(:call, :(::Val{$key}), :__ret__, :(::typeof($f)), positional_args..., default_args...)
-  if !isempty(keyword_args)
-      method_signature.args = vcat(Expr(:parameters, keyword_args...), method_signature.args)
-  end
-  :(Spec.postmeta($(method_signature.args...)) = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
-end
-
-function transformmetapost(key, expr, meta)
-    components = extract_fdef_components(expr)
-    _transformmetapost(key, components.f, components.body, meta, components.positional_args, components.default_args, components.keyword_args)
+function transformmetapost(key, fdefexpr, meta)
+    _call_expr = extract_function_call(fdefexpr)
+    body = extract_fdef_components(fdefexpr).body
+    lhs = @match _call_expr begin
+        Expr(:call, fn, Expr(:parameters, kwargs...), args...) => Expr(:call, :(Spec.postmeta), Expr(:parameters, kwargs...), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
+        Expr(:call, fn, args...) => Expr(:call, :(Spec.postmeta), :(::Val{$key}), :__ret__, :(::typeof($fn)), args...)
+    end
+    :($lhs = Spec.SpecMeta(; expr = $(QuoteNode(body)), desc = $meta))
 end
 
 """
