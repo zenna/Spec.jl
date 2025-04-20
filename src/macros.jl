@@ -1,123 +1,11 @@
-## Utilities
-## =========
 
-"""
-    is_top_level_func_def(ex::Expr) -> Bool
-
-Return `true` when the expression `ex` has the *syntactic* form of a
-**top‑level** Julia function (method) definition.
-
-Recognised patterns
--------------------
-1. `function … end` blocks, including empty stubs (`function g end`);
-2. one‑line definitions of the form `lhs = rhs`
-   where `lhs` itself is a *call* expression
-   (`f(x)=…`, `+(a,b)=…`, `(s::T)(x)=…`);
-3. `@generated function … end`.
-
-The test is purely structural; it does **not** check that the code
-really appears at global scope or that it survives macro hygiene.
-"""
-function is_top_level_func_def(ex::Expr)::Bool
-    # helper -----------------------------------------------------------
-    _is_call(lhs) = lhs isa Expr && lhs.head === :call
-
-    # 1.  `function name … end`
-    ex.head === :function && return true
-
-    # 2.  compact / operator / functor method  `lhs = rhs`
-    if ex.head === :(=)
-        lhs, _ = ex.args
-        return _is_call(lhs)
-    end
-
-    # 3.  `@generated function … end`
-    if ex.head === :macrocall &&
-       !isempty(ex.args)       &&
-       ex.args[1] === Symbol("@generated")
-        fn_expr = ex.args[end]               # usually the last slot
-        return fn_expr isa Expr && fn_expr.head === :function
-    end
-
-    return false
-end
-
-
-"""
-    extract_function_call(expr::Expr)
-
-From a function definition extract the function call expr
-
-```jldoctest
-julia> extract_function_call(:(f(x::Int, y::Real) = x > 0))
-:(f(x::Int, y::Real))
-
-julia> x = :(function  f(x::String)
-         x * "hello"
-       end)
-
-julia> extract_function_call(x)
-:(f(x::String))
-```
-"""
-function extract_function_call(expr::Expr)
-  @match expr begin
-    Expr(:(=), Expr(:call, fn, args...), _) => Expr(:call, fn, args...)
-    Expr(:function, Expr(:call, fn, args...), _) => Expr(:call, fn, args...)
-    _ => throw(ArgumentError("Invalid expression: $expr"))
-  end
-end
-
-function extract_fdef_components(expr::Expr)
-  @match expr begin
-    # Match function definitions with any combination of arguments
-    Expr(:(=), Expr(:call, f, args...), body) => begin
-        # Initialize argument lists
-        positional_args = []
-        default_args = []
-        keyword_args = []
-
-        # Iterate over the arguments
-        for arg in args
-            if arg isa Expr
-                if arg.head == :parameters
-                    # Collect keyword arguments
-                    append!(keyword_args, arg.args)
-                elseif arg.head == :kw
-                    # Collect default positional arguments
-                    push!(default_args, arg)
-                else
-                    # Collect positional arguments
-                    push!(positional_args, arg)
-                end
-            else
-                # Collect positional arguments
-                push!(positional_args, arg)
-            end
-        end
-        return (f = f,
-                positional_args = positional_args,
-                default_args = default_args,
-                keyword_args = keyword_args,
-                body = body)
-    end
-    _ => throw(ArgumentError("Invalid expression: $expr"))
-  end
-end
-
-function call_expr(; fn, args, kwargs)
-    # @show fn
-    # @show args
-    # @show kwargs
-    Expr(:call, fn, [kwargs; args]...)
-end
 
 # Utility: ensure an overlay wrapper exists for this `fncall`
 function _install_overlay(fdef::Expr)
     @assert is_top_level_func_def(fdef)
     # fn   = fdef.args[1]
     # args = fdef.args[2:end]
-    c = extract_fdef_components(fdef)
+    @show c = extract_fdef_components(fdef)
     fn = c.f
     args = c.positional_args
     lhs_call_expr = call_expr(fn = fn, args = c.positional_args, kwargs = c.keyword_args)
@@ -129,7 +17,8 @@ function _install_overlay(fdef::Expr)
     r = quote
       Spec.CassetteOverlay.@overlay Spec.Spectable ($lhs_call_expr = $prepostcallexpr)
     end
-    # dump(r; maxdepth = 15)
+    @show r
+    dump(r; maxdepth = 15)
     return r
 end
 

@@ -1,6 +1,9 @@
 using Spec
 using Test
 
+# Include expression utilities tests
+include("expr_test.jl")
+
 @testset "Basic precondition tests" begin
     f(x::Float64) = x * sqrt(x)
     @pre f(x::Float64) = x > 0 "x must be positive"

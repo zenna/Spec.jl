@@ -40,27 +40,32 @@ function Base.showerror(io::IO, e::PostconditionError)
   println(io, "and on return value: ", e.ret)
 end
 
-@inline function prepostcall(f, args...)
-  check_pre(f, args...)
-  ret = CassetteOverlay.@nonoverlay f(args...)
-  check_post(ret, f, args...)
+@inline function prepostcall(f, args...; kwargs...)
+  # @show kwargs
+  check_pre(f, args...; kwargs...)
+  ret = CassetteOverlay.@nonoverlay f(args...; kwargs...)
+  check_post(ret, f, args...; kwargs...)
   ret
 end
 
 available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
 
-@inline function check_pre(f, args...)
+@inline function check_pre(f, args...; kwargs...)
   for v in available_vals(pre)
     if applicable(pre, v(), f, args...)
       premeta_ = premeta(v(), f, args...)
       if premeta_.check
-        !pre(v(), f, args...) && throw(PreconditionError(premeta_, args))
+        if @show(!isempty(kwargs))
+          !pre(v(), f, args...; kwargs...) && throw(PreconditionError(premeta_, (args..., kwargs)))
+        else
+          !pre(v(), f, args...) && throw(PreconditionError(premeta_, args))
+        end
       end
     end
   end
 end
 
-@inline function check_post(ret, f, args...)
+@inline function check_post(ret, f, args...; kwargs...)
   for v in available_vals(post)
     if applicable(post, v(), ret, f, args...)
       postmeta_ = postmeta(v(), ret, f, args...)
