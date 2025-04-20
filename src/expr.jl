@@ -44,7 +44,6 @@
 function is_valid_expr(expr::Expr)
   @match expr begin
     Expr(:call, args...) => is_call_expr(expr)
-    # For now, explicitly error on any other expression type
     _ => error("Not implemented for $expr")
   end
 end
@@ -88,7 +87,6 @@ The test is purely structural; it does **not** check that the code
 really appears at global scope or that it survives macro hygiene.
 """
 function is_top_level_func_def(ex::Expr)::Bool
-    # helper -----------------------------------------------------------
     _is_call(lhs) = lhs isa Expr && lhs.head === :call
 
     # 1.  `function name … end`
@@ -154,8 +152,6 @@ julia> @eval expr
 ```
 """
 function call_expr_to_call_args(expr::Expr)
-  # Need to handle all the different types.
-  # Note if there are parameters these are the first arguments, se
   @match expr begin
     Expr(:call, fn, Expr(:parameters, kwargs...), args...) => Any[Expr(:parameters, kwargs...), fn, args...]
     Expr(:call, fn, args...) => Any[fn, args...]
@@ -192,18 +188,6 @@ function extract_fdef_components(expr::Expr)
                 push!(positional_args, arg)
             end
         end
-        
-        # Strip line number information from the body
-        if body isa Expr && body.head == :block
-            # Find the last non-line-number expression in the block
-            for i in length(body.args):-1:1
-                if !(body.args[i] isa LineNumberNode)
-                    body = body.args[i]
-                    break
-                end
-            end
-        end
-        
         return (f = f,
                 positional_args = positional_args,
                 default_args = default_args,
@@ -215,5 +199,5 @@ function extract_fdef_components(expr::Expr)
 end
 
 function call_expr(; fn, args, kwargs)
-    @show Expr(:call, fn, [kwargs; args]...)
+    Expr(:call, fn, [kwargs; args]...)
 end

@@ -55,7 +55,7 @@ available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
     if applicable(pre, v(), f, args...)
       premeta_ = premeta(v(), f, args...)
       if premeta_.check
-        if @show(!isempty(kwargs))
+        if !isempty(kwargs)
           !pre(v(), f, args...; kwargs...) && throw(PreconditionError(premeta_, (args..., kwargs)))
         else
           !pre(v(), f, args...) && throw(PreconditionError(premeta_, args))
