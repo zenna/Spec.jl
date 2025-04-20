@@ -1,7 +1,11 @@
-export post, pre, premeta, postmeta, specapply, PreconditionError, PostconditionError
+export post, pre, premeta, postmeta, specapply, PreconditionError, PostconditionError, @gen_pre, @gen_post
 
-import Cassette
+using CassetteOverlay
 using Parameters
+# using MacroTools
+
+# These are now available since macros.jl is included before prepost.jl
+import .Spec: transform, transformmeta, transformpost, transformmetapost
 
 ## TODO:
 # 1. pre/post over multiple lines wont work
@@ -36,30 +40,16 @@ function Base.showerror(io::IO, e::PostconditionError)
   println(io, "and on return value: ", e.ret)
 end
 
-Cassette.@context SpecCtx
-
-@inline function Cassette.overdub(ctx::SpecCtx, f, args...)
-  # @show f, args
-  pre = checkpre(f, args...)
-  # cap = capture(f, args...)
-  ret = Cassette.recurse(ctx, f, args...)
-  checkpost(ret, f, args...)
+@inline function prepostcall(f, args...)
+  check_pre(f, args...)
+  ret = CassetteOverlay.@nonoverlay f(args...)
+  check_post(ret, f, args...)
   ret
 end
 
-# @inline function dospec(ctx::SpecCtx, f, args...)
-#   # @show f, args
-#   ## For each one that matches pre(specid, f, args...)
-#   pre = checkpre(f, args...)
-#   # cap = capture(f, args...)
-#   ret = Cassette.recurse(ctx, f, args...)
-#   checkpost(ret, f, args...)
-#   ret
-# end
-
 available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
 
-@inline function checkpre(f, args...)
+@inline function check_pre(f, args...)
   for v in available_vals(pre)
     if applicable(pre, v(), f, args...)
       premeta_ = premeta(v(), f, args...)
@@ -70,7 +60,7 @@ available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
   end
 end
 
-@inline function checkpost(ret, f, args...)
+@inline function check_post(ret, f, args...)
   for v in available_vals(post)
     if applicable(post, v(), ret, f, args...)
       postmeta_ = postmeta(v(), ret, f, args...)
@@ -158,5 +148,3 @@ specapply(f, 0.3)
 ```
 
 """
-specapply(f, args...) = Cassette.overdub(SpecCtx(), f, args...)
-
