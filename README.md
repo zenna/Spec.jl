@@ -184,11 +184,6 @@ This approach allows you to test both the correctness of your functions and the 
    Bad example: `@pre process(x::String) = typeof(x) == String "`x` is a string"`
    Good example: Simply use Julia's type dispatch: `function process(x::String)`
 
-<<<<<<< HEAD
-11. Avoid redundant type checking: Do not add specifications that can be enforced by Julia's type system.
-    Bad example: `@pre process(x::String) = typeof(x) == String "`x` is a string"`
-    Good example: Simply use Julia's type dispatch: `function process(x::String)`
-=======
 # Planned Features (Not Yet Implemented)
 
 ## @specapply Macro
@@ -242,4 +237,3 @@ spectest(some_generic_function)
 ```
 
 This would generate inputs consistent with preconditions and test the function with those inputs.
->>>>>>> main
