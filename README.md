@@ -94,7 +94,11 @@ To actually check specifications we use `specapply`:
 specapply(f, args...)
 ```
 
-This will evaluate `f(args)`, but for all function applications encountered in the execution of `f(args...)`, each and every associated spec will be checked.
+This will evaluate `f(args)` under the Spec overlay, checking any associated pre/post
+conditions on functions that have been annotated with `@pre` or `@post`.
+
+Note: when a function has a spec, its body currently runs via `@nonoverlay`, so nested
+calls inside that function are not checked. This is a known limitation.
 
 ## Testing with Spec
 
@@ -184,6 +188,21 @@ This approach allows you to test both the correctness of your functions and the 
    Bad example: `@pre process(x::String) = typeof(x) == String "`x` is a string"`
    Good example: Simply use Julia's type dispatch: `function process(x::String)`
 
+10. Keyword argument limitations: When specifying preconditions or postconditions for functions with keyword arguments, always include all keyword arguments with their default values.
+   Example:
+   ```julia
+   function calculate_discount(price; discount_percent=0, min_price=0)
+       # implementation
+   end
+   
+   # Good - explicitly includes all keyword arguments with their default values
+   @pre calculate_discount(price; discount_percent=0, min_price=0) = price >= 0 "Price must be non-negative"
+   
+   # Bad - missing default values for keyword arguments
+   @pre calculate_discount(price; discount_percent, min_price) = price >= 0 "Price must be non-negative"
+   ```
+   This limitation exists because the implementation needs to match keyword arguments exactly when checking preconditions and postconditions.
+
 # Planned Features (Not Yet Implemented)
 
 ## @specapply Macro
@@ -226,6 +245,8 @@ struct FriendMatrix
 end
 @invariant x::FriendMatrix issymetric(x)
 ```
+
+Note: `@invariant` is exported today but will throw "not implemented yet".
 
 ## QuickCheck-style Testing
 

@@ -1,6 +1,10 @@
 using Spec
 using Test
 
+# Include expression utilities tests
+include("expr_test.jl")
+include("type_stability.jl")
+
 @testset "Basic precondition tests" begin
     f(x::Float64) = x * sqrt(x)
     @pre f(x::Float64) = x > 0 "x must be positive"
@@ -8,6 +12,27 @@ using Test
     @test_throws PreconditionError specapply(f, -10.0)
     @pre f(x::Float64) = x < 10.0 "x must be less than 10.0"
     @test_throws PreconditionError specapply(f, 15.0)
+end
+
+@testset "Overlay install idempotence" begin
+    fname = gensym(:spec_f)
+    @eval $fname(x::Float64) = x * sqrt(x)
+
+    overlay_before = length(Spec._overlay_installed)
+    @eval @pre $fname(x::Float64) = x > 0 "x must be positive"
+    overlay_after = length(Spec._overlay_installed)
+    @test overlay_after == overlay_before + 1
+
+    @eval @pre $fname(x::Float64) = x < 10.0 "x must be less than 10.0"
+    @test length(Spec._overlay_installed) == overlay_after
+end
+
+@testset "Keyword forwarding" begin
+    fname = gensym(:add_kw)
+    @eval $fname(x; y=1) = x + y
+    @eval @pre $fname(x; y=1) = y > 0 "y must be positive"
+    f = getfield(@__MODULE__, fname)
+    @test specapply(f, 1; y=5) == 6
 end
 
 @testset "Multiple Preconditions" begin
@@ -19,6 +44,12 @@ end
     @test specapply(bmi, 1.8, 70.0) ≈ 70.0 / (1.8 * 1.8)
     @test_throws PreconditionError specapply(bmi, -1.8, 70.0)
     @test_throws PreconditionError specapply(bmi, 1.8, -70.0)
+end
+
+@testset "Postcondition return binding" begin
+    inc(x) = x + 1
+    @post inc(__ret__, x) = __ret__ > x "return must exceed input"
+    @test specapply(inc, 1) == 2
 end
 
 @testset "Post conditions" begin
@@ -92,18 +123,56 @@ end
 
 # TODO: Future tests with keyword arguments will be added later
 
-# ## mutating
-# @post sort!(x) = isysortedx(__pre__.x, __ret__) "Result is sorted version of input"
+@testset "Functions with keyword arguments" begin
+    # Simple function with keyword arguments
+    discount_fn = gensym(:calculate_discount)
+    @eval $discount_fn(price; discount_percent=0, min_price=0) = begin
+        if price < min_price
+            return price
+        end
+        return price * (1 - discount_percent/100)
+    end
+    @eval @pre $discount_fn(price; discount_percent=0, min_price=0) = price >= 0 "Price must be non-negative"
+    @eval @pre $discount_fn(price; discount_percent=0, min_price=0) = 0 <= discount_percent <= 100 "Discount must be between 0 and 100"
+    calculate_discount = getfield(@__MODULE__, discount_fn)
 
-# function mutate!(x, xs)
-#   push!(x, xs)
-# end
-# @post mutate!(x, xs) = x in __post__.xs "x is in the post state xs"
-
-# # Invariant
-# struct FriendMatrix
-#   x::Matrix
-# end
-# @invariant x::FriendMatrix issymetric(x)
-
-# Spec.overdub(::Spec.SpecCtx, x::FriendMatrix, args...) = issymetric(issymetric)
+    
+    # Test successful cases
+    @test specapply(calculate_discount, 100.0, discount_percent=20) == 80.0
+    @test specapply(calculate_discount, 50.0, discount_percent=10, min_price=30) == 45.0
+    @test specapply(calculate_discount, 25.0, discount_percent=10, min_price=30) == 25.0
+    
+    # Test precondition failures
+    @test_throws PreconditionError specapply(calculate_discount, -50.0, discount_percent=10)
+    @test_throws PreconditionError specapply(calculate_discount, 100.0, discount_percent=110)
+    
+    # More complex function with multiple keyword arguments
+    configure_fn = gensym(:configure_api)
+    @eval $configure_fn(endpoint; timeout=30, retries=3, headers=Dict(), debug=false) = begin
+        config = Dict(
+            "endpoint" => endpoint,
+            "timeout" => timeout,
+            "retries" => retries,
+            "headers" => headers,
+            "debug" => debug
+        )
+        return config
+    end
+    @eval @pre $configure_fn(endpoint; timeout=30, retries=3) = !isempty(endpoint) "Endpoint cannot be empty"
+    @eval @pre $configure_fn(endpoint; timeout=30, retries=3) = timeout > 0 "Timeout must be positive"
+    @eval @pre $configure_fn(endpoint; timeout=30, retries=3) = retries >= 0 "Retries cannot be negative"
+    @eval @post $configure_fn(endpoint; timeout=30, retries=3, headers=Dict(), debug=false) = __ret__["endpoint"] == endpoint "Endpoint in config matches input"
+    configure_api = getfield(@__MODULE__, configure_fn)
+    
+    # Test successful cases
+    @test specapply(configure_api, "https://api.example.com")["endpoint"] == "https://api.example.com"
+    @test specapply(configure_api, "https://api.example.com", timeout=60)["timeout"] == 60
+    @test specapply(configure_api, "https://api.example.com", 
+                    headers=Dict("Authorization" => "Bearer token"))["headers"]["Authorization"] == "Bearer token"
+    @test specapply(configure_api, "https://api.example.com", debug=true)["debug"] == true
+    
+    # Test failures
+    @test_throws PreconditionError specapply(configure_api, "")
+    @test_throws PreconditionError specapply(configure_api, "https://api.example.com", timeout=0)
+    @test_throws PreconditionError specapply(configure_api, "https://api.example.com", retries=-1)
+end
