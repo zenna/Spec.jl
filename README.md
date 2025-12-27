@@ -94,7 +94,11 @@ To actually check specifications we use `specapply`:
 specapply(f, args...)
 ```
 
-This will evaluate `f(args)`, but for all function applications encountered in the execution of `f(args...)`, each and every associated spec will be checked.
+This will evaluate `f(args)` under the Spec overlay, checking any associated pre/post
+conditions on functions that have been annotated with `@pre` or `@post`.
+
+Note: when a function has a spec, its body currently runs via `@nonoverlay`, so nested
+calls inside that function are not checked. This is a known limitation.
 
 ## Testing with Spec
 
@@ -241,6 +245,8 @@ struct FriendMatrix
 end
 @invariant x::FriendMatrix issymetric(x)
 ```
+
+Note: `@invariant` is exported today but will throw "not implemented yet".
 
 ## QuickCheck-style Testing
 

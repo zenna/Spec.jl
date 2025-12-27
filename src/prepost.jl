@@ -1,4 +1,4 @@
-export post, pre, premeta, postmeta, specapply, PreconditionError, PostconditionError, @gen_pre, @gen_post
+export post, pre, premeta, postmeta, specapply, PreconditionError, PostconditionError
 
 using CassetteOverlay
 using Parameters
@@ -56,7 +56,12 @@ available_vals(fn) = (m.sig.types[2] for m in methods(fn).ms)
       premeta_ = premeta(v(), f, args...)
       if premeta_.check
         if !isempty(kwargs)
-          !pre(v(), f, args...; kwargs...) && throw(PreconditionError(premeta_, (args..., kwargs)))
+          method = which(pre, Tuple{typeof(v()), typeof(f), map(typeof, args)...})
+          allowed = Base.kwarg_decl(method)
+          filtered = isempty(allowed) ? NamedTuple() :
+              (; (k => kwargs[k] for k in allowed if haskey(kwargs, k))...)
+          ok = isempty(filtered) ? pre(v(), f, args...) : pre(v(), f, args...; filtered...)
+          !ok && throw(PreconditionError(premeta_, (args..., kwargs)))
         else
           !pre(v(), f, args...) && throw(PreconditionError(premeta_, args))
         end
@@ -71,7 +76,12 @@ end
       postmeta_ = postmeta(v(), ret, f, args...)
       if postmeta_.check
         if !isempty(kwargs)
-          !post(v(), ret, f, args...; kwargs...) && throw(PostconditionError(postmeta_, (args..., kwargs), ret))
+          method = which(post, Tuple{typeof(v()), typeof(ret), typeof(f), map(typeof, args)...})
+          allowed = Base.kwarg_decl(method)
+          filtered = isempty(allowed) ? NamedTuple() :
+              (; (k => kwargs[k] for k in allowed if haskey(kwargs, k))...)
+          ok = isempty(filtered) ? post(v(), ret, f, args...) : post(v(), ret, f, args...; filtered...)
+          !ok && throw(PostconditionError(postmeta_, (args..., kwargs), ret))
         else
           !post(v(), ret, f, args...) && throw(PostconditionError(postmeta_, args, ret))
         end
@@ -151,9 +161,4 @@ julia> # Function with keyword arguments
 julia> @pre search(text; pattern) = !isempty(pattern) "Search pattern cannot be empty";
 
 ```
-f(x) = abs(x)
-@post f(ret, x) = x > 0)
-specapply(f, 0.3)
-```
-
 """
