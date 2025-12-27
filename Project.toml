@@ -1,7 +1,7 @@
 name = "Spec"
 uuid = "b8ccf107-3a88-5e0f-823b-b838c6a0f327"
-authors = ["Zenna Tavares <zennatavares@gmail.com>"]
 version = "0.3.0"
+authors = ["Zenna Tavares <zennatavares@gmail.com>"]
 
 [deps]
 CassetteOverlay = "d78b62d4-37fa-4a6f-acd8-2f19986eb9ee"
@@ -11,7 +11,11 @@ Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[sources]
+CassetteOverlay = {path = "/Users/zenna/repos/CassetteOverlay.jl"}
+
 [compat]
+CassetteOverlay = "0.2.5"
 MLStyle = "0.4"
 Parameters = "0.12"
 julia = "1.6"

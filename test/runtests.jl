@@ -3,6 +3,7 @@ using Test
 
 # Include expression utilities tests
 include("expr_test.jl")
+include("type_stability.jl")
 
 @testset "Basic precondition tests" begin
     f(x::Float64) = x * sqrt(x)
