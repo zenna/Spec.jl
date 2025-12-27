@@ -7,13 +7,12 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.version == 'nightly' }}
+    continue-on-error: ${{ matrix.version != '1.12' }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        # LTS (v1.10.7), latest stable, nightly
         version:
           - '1.10.7'
           - '1.12'
